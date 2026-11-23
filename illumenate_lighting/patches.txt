@@ -120,3 +120,4 @@ illumenate_lighting.patches.add_shipping_label_fields
 illumenate_lighting.patches.add_reel_item_fields
 illumenate_lighting.patches.seed_label_templates
 illumenate_lighting.patches.move_custom_fields_into_main_tab
+illumenate_lighting.patches.add_purchase_invoice_vendor_order_no

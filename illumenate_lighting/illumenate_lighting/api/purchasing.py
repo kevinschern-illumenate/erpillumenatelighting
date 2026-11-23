@@ -20,6 +20,9 @@ SETTINGS = "ilL-Purchasing-Settings"
 SHIPMENT = "ilL-Inbound-Shipment"
 SHIPMENT_PO = "ilL-Child-Shipment-PO"
 SHIPMENT_COST = "ilL-Child-Shipment-Cost"
+# Purchase Order "Vendor Order / Ack #", carried to the Purchase Invoice under the same name.
+VENDOR_ORDER_FIELD = "ill_vendor_order_no"
+VENDOR_ORDER_LENGTH = 140  # Data column length
 
 VENDOR_STATUSES = ("Not sent", "Sent", "Confirmed", "In production", "Shipped", "Delivered")
 ISSUE = "Issue"
@@ -575,6 +578,69 @@ def on_receipt_submit(doc, method=None):
 		comment(SHIPMENT, shipment.name, f"receipt {doc.name} added when it was submitted")
 	except Exception:
 		_log("on_receipt_submit")
+
+
+def vendor_order_numbers(orders):
+	"""The Purchase Orders' Vendor Order / Ack #, in the order given, distinct, comma-joined."""
+	names = list(dict.fromkeys(o for o in orders if o))
+	if not names:
+		return ""
+	found = dict(
+		frappe.get_all(
+			"Purchase Order",
+			filters={"name": ["in", names]},
+			fields=["name", VENDOR_ORDER_FIELD],
+			as_list=True,
+		)
+	)
+	values = [str(found.get(n) or "").strip() for n in names]
+	return ", ".join(dict.fromkeys(v for v in values if v))[:VENDOR_ORDER_LENGTH]
+
+
+def fill_invoice_vendor_order(doc, method=None):
+	"""Purchase Invoice validate: a blank Vendor Order / Ack # comes from the lines' Purchase Orders."""
+	try:
+		if doc.get(VENDOR_ORDER_FIELD) or not doc.meta.has_field(VENDOR_ORDER_FIELD):
+			return
+		value = vendor_order_numbers(row.get("purchase_order") for row in doc.get("items") or [])
+		if value:
+			doc.set(VENDOR_ORDER_FIELD, value)
+	except Exception:
+		_log("fill_invoice_vendor_order")
+
+
+def push_vendor_order_to_invoices(doc, method=None):
+	"""Purchase Order on_update_after_submit: an ack # entered later reaches its invoices
+	that still have none. Submitted invoices included; a value already there is kept."""
+	try:
+		if not str(doc.get(VENDOR_ORDER_FIELD) or "").strip() or not _has_field(
+			"Purchase Invoice", VENDOR_ORDER_FIELD
+		):
+			return
+		invoices = frappe.get_all(
+			"Purchase Invoice",
+			filters=[
+				["Purchase Invoice Item", "purchase_order", "=", doc.name],
+				["docstatus", "<", 2],
+				[VENDOR_ORDER_FIELD, "is", "not set"],
+			],
+			pluck="name",
+			distinct=True,
+		)
+		for name in invoices:
+			orders = frappe.get_all(
+				"Purchase Invoice Item",
+				filters={"parent": name, "parenttype": "Purchase Invoice"},
+				pluck="purchase_order",
+				order_by="idx asc",
+			)
+			value = vendor_order_numbers(orders)
+			if value:
+				frappe.db.set_value(
+					"Purchase Invoice", name, VENDOR_ORDER_FIELD, value, update_modified=False
+				)
+	except Exception:
+		_log("push_vendor_order_to_invoices")
 
 
 def on_invoice_submit(doc, method=None):

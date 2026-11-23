@@ -294,6 +294,9 @@ class BillPush(unittest.TestCase):
 			self.assertEqual(payload["adjustment"], 18.0)
 			self.assertEqual(payload["total"], 118.0)
 			self.assertEqual(payload["vendor_qbo_id"], "V-9")
+			self.assertIsNone(payload["vendor_order_no"])
+			payload = module.bill_payload(purchase_invoice(ill_vendor_order_no="ACK-5"))
+			self.assertEqual(payload["vendor_order_no"], "ACK-5")
 
 	def test_nothing_is_queued_before_the_cutover_for_returns_or_when_off(self):
 		cases = [

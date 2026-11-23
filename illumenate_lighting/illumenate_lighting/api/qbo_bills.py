@@ -108,6 +108,8 @@ def bill_payload(doc, event="Submit"):
 		"supplier_name": doc.get("supplier_name") or doc.supplier,
 		"vendor_qbo_id": frappe.db.get_value("Supplier", doc.supplier, "custom_qbo_id") or None,
 		"bill_no": doc.get("bill_no") or None,
+		# Vendor Order / Ack #, carried from the Purchase Order(s).
+		"vendor_order_no": doc.get("ill_vendor_order_no") or None,
 		"bill_date": doc.get("bill_date") or None,
 		"posting_date": doc.posting_date,
 		"due_date": doc.get("due_date") or None,

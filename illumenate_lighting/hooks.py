@@ -452,6 +452,8 @@ doc_events = {
 	"BOM": {"on_submit": "illumenate_lighting.illumenate_lighting.api.build_points.on_bom_submit"},
 	"Production Plan": {"validate": "illumenate_lighting.illumenate_lighting.api.material_planning.validate_production_plan"},
 	"Purchase Invoice": {
+		# A blank Vendor Order / Ack # comes from the lines' Purchase Orders.
+		"validate": "illumenate_lighting.illumenate_lighting.api.purchasing.fill_invoice_vendor_order",
 		# QuickBooks first; then purchasing fills shipment cost lines that link this bill.
 		"on_submit": [
 			"illumenate_lighting.illumenate_lighting.api.qbo_bills.on_submit",
@@ -566,6 +568,8 @@ doc_events = {
 		# Purchasing board: lead time, ETA, freight mode and vendor status on new POs.
 		"before_insert": "illumenate_lighting.illumenate_lighting.api.purchasing.prefill_po_tracking",
 		"on_submit": "illumenate_lighting.illumenate_lighting.api.purchasing.on_po_submit",
+		# A Vendor Order / Ack # entered after submit reaches linked Purchase Invoices that have none.
+		"on_update_after_submit": "illumenate_lighting.illumenate_lighting.api.purchasing.push_vendor_order_to_invoices",
 		"validate": [
 			# A blank contact_email defaults to the Supplier's Purchasing Email.
 			"illumenate_lighting.illumenate_lighting.email_templates.recipients.fill_purchase_order_email",
