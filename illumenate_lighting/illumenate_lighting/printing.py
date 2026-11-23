@@ -756,6 +756,7 @@ def ill_print_schedule(doc) -> dict:
 		for line in lines:
 			maker = line.get("manufacturer_type") or ""
 			entry = {
+				"line_name": line.get("name") or "",
 				"type": line.get("line_id") or "",
 				"qty": line.get("qty") or 0,
 				"maker": "ilLumenate"
@@ -842,6 +843,41 @@ def ill_print_schedule(doc) -> dict:
 		info["sections"] = sections
 	except Exception:
 		_log("ilL print: could not read the fixture schedule")
+	return info
+
+
+def ill_print_schedule_prices(doc) -> dict:
+	"""MSRP for each schedule line, for the ``ilL Fixture Schedule - MSRP`` format (owner, 2026-11-23).
+
+	``{"lines": {line name: {"unit", "amount"}}, "total", "unpriced", "allowed"}``. Prices are
+	the PDF export's (``exports._get_schedule_data``): the latest MSRP snapshot of each build, a
+	group's current estimate, or an accessory's price. Nothing is returned to a user without
+	pricing permission, so a Desk print never shows prices to someone who cannot see them.
+	"""
+	info = {"lines": {}, "total": 0.0, "unpriced": 0, "allowed": False}
+	try:
+		from illumenate_lighting.illumenate_lighting.api import exports
+
+		if not exports._check_pricing_permission():
+			return info
+		info["allowed"] = True
+		data = exports._get_schedule_data(doc.name, include_pricing=True)
+		for line in data.get("lines") or []:
+			unit = line.get("unit_price")
+			if unit is None:
+				info["unpriced"] += 1
+				continue
+			amount = line.get("line_total")
+			amount = float(amount if amount is not None else unit * (line.get("qty") or 1))
+			price = {"unit": float(unit), "amount": amount}
+			# A fixture's included power supply is priced on its own sub-line, as in the old export.
+			if line.get("driver_unit_price"):
+				price["driver_unit"] = float(line["driver_unit_price"])
+				price["driver_amount"] = float(line.get("driver_line_total") or 0)
+			info["lines"][line.get("line_name")] = price
+			info["total"] += amount + price.get("driver_amount", 0)
+	except Exception:
+		_log("ilL print: could not price the fixture schedule")
 	return info
 
 

@@ -1,0 +1,81 @@
+{#
+  ilL Fixture Schedule - MSRP: the fixture schedule with each line's MSRP, for the dealer
+  portal's priced PDF export (owner, 2026-11-23: MSRP, clearly labelled as MSRP). The same
+  layout as ilL Fixture Schedule plus MSRP Unit and MSRP Amount columns and an MSRP total.
+  Prices come from ill_print_schedule_prices, which returns nothing without pricing permission.
+  Outline and design: docs/PRINT_FORMATS.md; layout: templates/print/ill_print.html.
+#}
+{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, notes, line_group, closing, date, line_type, line_notes, money with context -%}
+{%- set schedule = ill_print_schedule(doc) -%}
+{%- set prices = ill_print_schedule_prices(doc) -%}
+{%- set project = schedule.project -%}
+{%- set customer = frappe.db.get_value("Customer", doc.customer, "customer_name") if doc.customer else "" -%}
+{%- set row = namespace(n=0) -%}
+{{ styles(brand=True) }}
+<div class="ill-doc ill-brand">
+	{{ header("Fixture Schedule (MSRP)", (project.project_name or doc.schedule_name or doc.name),
+		("Locked" if doc.is_locked else (doc.status or "") | title),
+		subtitle=(doc.schedule_name ~ " · v" ~ (doc.version or 1) ~ " · " ~ doc.name)) }}
+
+	{{ facts([
+		("Project", (project.project_name or "")),
+		("Dealer", (customer or doc.customer or "")),
+		("Project location", (project.location or "")),
+		("Version", ((doc.version or 1) | string ~ ((": " ~ doc.version_notes) if doc.version_notes else ""))),
+		("Sales order", (doc.sales_order or "")),
+		("Prices", "MSRP"),
+		("Printed", date(frappe.utils.today())),
+	]) }}
+
+	{{ notes("Notes", doc.notes) }}
+
+	{%- set items_head -%}
+	<thead>
+			<tr>
+				<th class="ill-idx">#</th>
+				<th>Description</th>
+				<th style="width: 14%;">Manufacturer</th>
+				<th class="ill-num" style="width: 6%;">Qty</th>
+				<th class="ill-num" style="width: 12%;">MSRP Unit</th>
+				<th class="ill-num" style="width: 13%;">MSRP Amount</th>
+			</tr>
+		</thead>
+	{%- endset -%}
+	<table class="ill-items ill-block">
+		{{ items_head }}
+		{%- for section in schedule.sections -%}
+			{%- for line in section.lines -%}
+			{%- set row.n = row.n + 1 -%}
+			{%- set price = prices.lines.get(line.line_name) -%}
+			{%- call line_group(line, 6, items_head) -%}
+				<td class="ill-idx">{{ row.n | int }}</td>
+				<td>{{ line_type(line) }}
+					<div class="ill-line-name">{{ line.name | e }}</div>
+					{%- if line.code and line.code != line.name %}<div class="ill-code ill-mono">{{ line.code | e }}</div>{% endif -%}
+					{%- if line.specs %}<div class="ill-specs">{% for label, value in line.specs %}{% if not loop.first %} <span class="ill-dot">&middot;</span> {% endif %}<span class="ill-spec">{{ label | e }} <b>{{ value | e }}</b></span>{% endfor %}</div>{% endif -%}
+					{%- if price and price.driver_unit %}<div class="ill-specs">Includes power supply, priced on its own line</div>{% endif -%}
+					{%- if line.status %}<div><span class="ill-tag ill-tag-inline">{{ line.status | e }}</span></div>{% endif -%}
+				{{ line_notes(line) }}</td>
+				<td>{{ line.maker | e }}</td>
+				<td class="ill-num">{{ line.qty | int }}</td>
+				<td class="ill-num">{% if price %}{{ money(price.unit, "USD") }}{% if price.driver_unit %}<div class="ill-specs">+ {{ money(price.driver_unit, "USD") }}</div>{% endif %}{% else %}&mdash;{% endif %}</td>
+				<td class="ill-num">{% if price %}{{ money(price.amount, "USD") }}{% if price.driver_amount %}<div class="ill-specs">+ {{ money(price.driver_amount, "USD") }}</div>{% endif %}{% else %}&mdash;{% endif %}</td>
+			{%- endcall -%}
+			{%- endfor -%}
+		{%- endfor -%}
+		<tr class="ill-total-row">
+			<td colspan="5" class="ill-num"><b>MSRP total</b></td>
+			<td class="ill-num"><b>{{ money(prices.total, "USD") }}</b></td>
+		</tr>
+	</table>
+
+	{%- set about = "All prices are MSRP (manufacturer's suggested retail price) as of the date printed. They are not dealer net prices and are not a quotation." -%}
+	{%- if not prices.allowed -%}
+		{%- set about = about ~ " Prices are shown only to users who can view pricing." -%}
+	{%- elif prices.unpriced -%}
+		{%- set about = about ~ " " ~ prices.unpriced ~ (" line is" if prices.unpriced == 1 else " lines are") ~ " not priced and not in the total." -%}
+	{%- endif -%}
+	{{ notes("About these prices", about) }}
+
+	{{ closing("Specifications are as configured on the date printed. Lengths are built lengths; quantities are per type and location.") }}
+</div>

@@ -2,10 +2,11 @@
 
 import io
 import json
+import sys
 import types
 import unittest
 from contextlib import contextmanager
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from pypdf import PdfReader, PdfWriter
 from pypdf.generic import ArrayObject, DictionaryObject, FloatObject, NameObject, TextStringObject
@@ -388,6 +389,27 @@ class DriverSubmittal(unittest.TestCase):
 						self.assertIn("100 W", text)
 						if export_type.endswith("FULL"):
 							self.assertIn("DRIVER-SHEET", text)
+
+	def test_generated_packets_open_with_the_schedule_print_and_skip_cover_and_extras(self):
+		steps = types.ModuleType("spec_sheet_steps")
+		steps.resolve = MagicMock(return_value=None)
+		with self.packet_service() as (packets, pages):
+			exports = sys.modules[ROOT + ".api.exports"]
+			exports.print_schedule_pdf = MagicMock(return_value=pdf_bytes(text="PRINT-SCHEDULE"))
+			packets.frappe.conf["generated_spec_submittals"] = 1
+			with patch.dict(sys.modules, {ROOT + ".api.spec_sheet_steps": steps}):
+				for export_type in ("SPEC_SUBMITTAL", "SPEC_SUBMITTAL_FULL"):
+					with self.subTest(export_type=export_type):
+						result = packets.generate("S", export_type, include_cover=True, job_name="JOB")
+						self.assertTrue(result["success"], result)
+						# Full is the same packet as Standard (owner, 2026-11-23).
+						self.assertEqual(len(result["manifest"]), 1)
+						reader = PdfReader(io.BytesIO(self.saved_content[result["file_url"]]))
+						self.assertIn("PRINT-SCHEDULE", reader.pages[0].extract_text())
+						self.assertIn("100 W", "\n".join(page.extract_text() for page in reader.pages))
+						self.assertIn("Submittal Contents", pages[-1])
+			exports.print_schedule_pdf.assert_called_with(self.schedule, priced=False)
+			self.assertNotIn("<html>Schedule</html>", pages)
 
 	def test_standard_submittal_always_exports_and_logs_omissions_for_staff(self):
 		missing = Record(
