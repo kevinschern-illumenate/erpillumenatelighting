@@ -77,6 +77,12 @@ REF_STACK = {
 	"Task": (6, "product"),
 	"ilL-Project": (6, "apps"),
 }
+# ToDos about our own systems are Projects / Systems work, even when they say "failed" or "late"
+SYSTEMS = re.compile(
+	r"\b(deploy(?:ed|s|ment)?|bench|frappe|erpnext|qbo|quickbooks|sync(?:s|ing)?|webflow|n8n|migration|patch|"
+	r"server|backup|staging|stock reconciliation|boms?)\b",
+	re.I,
+)
 TOPIC_STACK = {"risk": (1, "sales"), "quote": (2, "sales"), "order": (3, "ops"), "support": (4, "sales")}
 FLAG_RANK = {"late": 0, "today": 1}
 
@@ -110,6 +116,8 @@ def todo_stack(todo, team):
 		return REF_STACK[ref["dt"]]
 	if (todo.get("assigned_by") or "").lower() in team:
 		return 5, "growth"
+	if SYSTEMS.search(todo.get("title") or ""):
+		return 6, "systems"
 	t = topic(todo.get("title"))
 	return TOPIC_STACK.get(t, (7, None))
 

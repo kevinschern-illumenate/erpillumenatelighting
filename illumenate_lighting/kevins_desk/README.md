@@ -69,7 +69,13 @@ The desk creates `kevins-desk-<name>` Connected Apps by copying the Google App's
 | Recent | we wrote last, under 3 days ago | none |
 | Handled | someone else wrote last, and the thread is no longer in the inbox | none |
 
-"We" means the mailbox and the desk owner. A colleague counts as "we" only on a thread with someone outside the company (they answered the customer). A colleague writing internally is asking for something, so it lands in "Unblocking the team".
+"We" means the mailbox and the desk owner. A teammate counts as "we" on any thread that includes someone outside the company, as sender or recipient (they answered or wrote to the customer). A teammate writing internally is asking for something, so it lands in "Unblocking the team". Shared boxes map to a teammate (accounting@ is Charlotte). Any other company address (info@, notifications@) is a system sender, and Helpdesk tickets already cover those messages.
+
+**Also not owed** (tuned on the first live run, Nov 23):
+- A reply that only says thanks, with no question before the signature.
+- Cold pitches (promotions, new products, partnerships, funding, trade fairs) from senders who aren't a customer, supplier, lead or teammate.
+- Mail from vendor-system subdomains (`notice.`, `service.` …).
+- Threads waiting more than 30 days (stale).
 
 Automated mail is dropped and loses @Action/@Waiting: list headers, bulk precedence, Auto-Submitted, no-reply-style senders, and the skipped domains. @Quote is added to quote threads and never removed. Nothing is archived, marked read, trashed or sent.
 
@@ -90,7 +96,7 @@ ToDos are placed by their linked record:
 - Ticket → 4
 - Project or Task → 6
 
-A ToDo assigned by a teammate goes to 5. Otherwise the same words as for threads decide, and anything left is 7 (admin).
+A ToDo assigned by a teammate goes to 5. A ToDo about our own systems (deploy, sync, QBO, Frappe, Webflow …) goes to 6 under Systems, even when it says "failed". Otherwise the same words as for threads decide, and anything left is 7 (admin).
 
 ## Tests
 

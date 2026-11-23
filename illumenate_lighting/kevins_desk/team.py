@@ -4,6 +4,8 @@ command_center_sync.ROLES, so no address is hard-coded."""
 import frappe
 
 # key (user prefix) -> (first name, what they own: used for "delegate" suggestions)
+# Shared mailboxes a teammate answers from, by prefix on the same domain.
+ALIASES = {"charlotte": ("accounting",)}
 TEAM = {
 	"jay": ("Jay", "sales calls, standard quotes, dealer relationships"),
 	"charlotte": ("Charlotte", "invoicing, payments, AP/AR, QBO"),
@@ -18,5 +20,9 @@ def resolve():
 	for key, (name, owns) in TEAM.items():
 		email = frappe.db.get_value("User", {"name": ["like", key + "@%"], "enabled": 1}, "name")
 		if email:
-			out[email.lower()] = {"key": key, "name": name, "owns": owns}
+			entry = {"key": key, "name": name, "owns": owns}
+			out[email.lower()] = entry
+			domain = email.rsplit("@", 1)[1].lower()
+			for alias in ALIASES.get(key, ()):
+				out[f"{alias}@{domain}"] = entry
 	return out

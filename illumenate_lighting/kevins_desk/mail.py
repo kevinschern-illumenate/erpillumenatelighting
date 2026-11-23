@@ -8,15 +8,18 @@ Per mailbox, the desk reads (metadata only, never bodies):
     * threads already labelled @Action or @Waiting (so labels can be cleared when a thread moves on)
 
 Thread state, from the last message:
-    reply    a customer / outside sender wrote last and the thread is in the inbox  -> @Action
+    reply    someone wrote last, it needs an answer, and the thread is in the inbox  -> @Action
     waiting  we wrote last and nobody answered for 3+ days                          -> @Waiting
     recent   we wrote last, under 3 days ago                                        -> no label
-    none     the outside sender wrote last but the thread left the inbox (handled)  -> no label
+    none     handled: left the inbox, or the last message only says thanks       -> no label
+    stale    we wrote last more than 30 days ago                                    -> no label
 Automated mail (List-Unsubscribe / List-Id / bulk precedence / Auto-Submitted / no-reply style senders /
-the skipped domains) never becomes an item and loses @Action/@Waiting. @Quote is added to quote threads
+vendor-system subdomains / the skipped domains), company system senders (info@, notifications@) and cold
+pitches from unknown senders never become items and lose @Action/@Waiting. @Quote is added to quote threads
 and never removed. Nothing is archived, marked read, trashed or sent.
 """
 
+import html
 import re
 from datetime import UTC, datetime
 from email.utils import getaddresses, parseaddr
@@ -59,7 +62,7 @@ GENERIC_DOMAINS = {
 }
 AUTOMATED_SENDER = re.compile(
 	r"^(no-?reply|do-?not-?reply|donotreply|notifications?|notify|mailer-daemon|postmaster|bounces?|alerts?|"
-	r"automated|news(?:letter)?|marketing|updates?)\b",
+	r"automated|news(?:letter)?|marketing|updates?|feedback|notices?|system|mailer)\b",
 	re.I,
 )
 SKIP_Q = " ".join(f"-from:{d}" for d in SKIP_DOMAINS)
@@ -72,6 +75,30 @@ SCOPES = {
 }
 DEFAULT_SCOPE = "Recent (21 days)"
 INBOX_Q = SCOPES[DEFAULT_SCOPE][0]
+# vendor systems send from subdomains like notice.alibaba.com / service.alibaba.com
+AUTOMATED_DOMAIN = re.compile(
+	r"^(notice|notices|notification|notifications|service|mailer|bounces?|news|email|em)\."
+)
+# cold pitches from senders who are not a customer, supplier, lead or teammate
+COLD = re.compile(
+	r"\b(special promotion|promotions?|new products?|introduce our|introducing our|partnership|line of credit|"
+	r"funding|valuation|investors?|back(?:ing)? businesses|headset video|webinar|thanks for (?:joining|attending)|"
+	r"trade (?:show|fair)|lighting fair|exhibit(?:ion)?)\b",
+	re.I,
+)
+# a reply that only says thanks: nothing is owed
+ACK_START = re.compile(
+	r"^(thanks?|thank you|many thanks|great|awesome|perfect|got it|sounds good|received(?: with thanks)?|noted|"
+	r"will do|appreciate(?:d| it)?|cheers|much appreciated)\b",
+	re.I,
+)
+GREETING = re.compile(r"^(hi|hello|hey|dear|good (?:morning|afternoon|day))\b[^,!.]{0,30}[,!.]?\s*", re.I)
+SIGNATURE = re.compile(
+	r"(--|—|\bbest\b|\bregards\b|\bsent from\b|\bthanks?\s*&|\bthank you,|\b[mo]:|\(\d{3}\)|\d{3}[-. ]\d{3}[-. ]\d{4}|"
+	r"\bon (?:mon|tue|wed|thu|fri|sat|sun)[a-z]*,)",
+	re.I,
+)
+STALE_DAYS = 30
 SENT_Q = "in:sent newer_than:30d"
 WAIT_DAYS = 3
 LATE = {"reply": 2, "waiting": 7}  # days before an item is flagged late
@@ -100,15 +127,45 @@ def is_automated(message, address):
 		return True
 	if h.get("auto-submitted", "no").lower() != "no":
 		return True
-	return bool(AUTOMATED_SENDER.match(address.split("@")[0])) or skipped_domain(address)
+	return (
+		bool(AUTOMATED_SENDER.match(address.split("@")[0]))
+		or skipped_domain(address)
+		or bool(AUTOMATED_DOMAIN.match(domain(address)))
+	)
 
 
-def read_thread(thread, me, ours, now):
+def is_ack(snippet, counterpart_name=""):
+	"""True when the message only says thanks (no question, nothing else before the signature)."""
+	text = GREETING.sub("", html.unescape(snippet or "").strip())
+	m = ACK_START.match(text)
+	if not m:
+		return False
+	first_end = re.search(r"[.!?\n]", text[m.end() :])
+	rest = text[m.end() + (first_end.end() if first_end else len(text)) :]
+	first = (counterpart_name or "").split()[0] if (counterpart_name or "").split() else ""
+	cut = SIGNATURE.search(rest)
+	if first:
+		named = re.search(r"(?:^|\W)-?" + re.escape(first) + r"\b", rest, re.I)
+		if named and (not cut or named.start() < cut.start()):
+			cut = named
+	body = rest[: cut.start()] if cut else rest
+	return "?" not in text[: m.end() + len(body) + 1] and len(re.sub(r"[^a-z]", "", body.lower())) < 25
+
+
+def is_cold(*texts):
+	return bool(COLD.search(" ".join(html.unescape(t or "") for t in texts)))
+
+
+def read_thread(thread, me, ours, now, team=()):
 	"""The facts the desk needs from one thread. Pure.
 
-	``me``: the mailbox and the desk owner's addresses; ``ours``: the company's email domains.
-	"We wrote last" means one of ``me`` did, or a colleague did on a thread with someone outside (they
-	answered the customer). A colleague writing last on an internal thread is asking us something.
+	``me``: the mailbox and the desk owner's addresses; ``ours``: the company's email domains;
+	``team``: teammates' addresses (including aliases such as accounting@ for Charlotte).
+	"We wrote last" means one of ``me`` did, or a teammate did on a thread with anyone outside the company
+	(as sender or recipient: they answered or wrote to the customer). A teammate writing last on an
+	internal thread is asking us something. Any other company address (info@, notifications@) is a system
+	sender: Helpdesk tickets and portal notices, covered by the desk's pipeline, so nothing is owed in Gmail.
+	A reply that only says thanks owes nothing; a thread waiting more than 30 days is stale.
 	"""
 	msgs = sorted(thread.get("messages") or [], key=lambda m: int(m.get("internalDate") or 0))
 	if not msgs:
@@ -119,7 +176,14 @@ def read_thread(thread, me, ours, now):
 	sender = sender.lower()
 	external = [(m, parseaddr(headers(m).get("from", ""))) for m in msgs]
 	external = [(m, n, a.lower()) for m, (n, a) in external if domain(a) not in ours]
-	last_ours = sender in me or (domain(sender) in ours and bool(external))
+	outside_party = bool(external) or any(
+		domain(a) not in ours
+		for m in msgs
+		for _, a in getaddresses([headers(m).get("to", ""), headers(m).get("cc", "")])
+		if a
+	)
+	system_sender = domain(sender) in ours and sender not in me and sender not in team
+	last_ours = sender in me or (sender in team and outside_party)
 	if not last_ours:
 		counterpart_name, counterpart = name, sender
 	elif external:
@@ -130,7 +194,8 @@ def read_thread(thread, me, ours, now):
 		outside = [p for p in to if domain(p[1]) not in ours] or to
 		counterpart_name, counterpart = outside[0] if outside else ("", "")
 	automated = (
-		(not counterpart)
+		system_sender
+		or (not counterpart)
 		or any(is_automated(m, a) for m, _, a in external)
 		or (bool(counterpart) and is_automated({}, counterpart))
 	)
@@ -138,9 +203,10 @@ def read_thread(thread, me, ours, now):
 	age = (now - last_at).total_seconds() / 86400
 	labels = {lb for m in msgs for lb in m.get("labelIds") or []}
 	if not last_ours:
-		state = "reply" if "INBOX" in labels else "none"
+		owed = "INBOX" in labels and not is_ack(last.get("snippet"), name)
+		state = "reply" if owed else "none"
 	else:
-		state = "waiting" if age >= WAIT_DAYS else "recent"
+		state = "stale" if age > STALE_DAYS else "waiting" if age >= WAIT_DAYS else "recent"
 	return {
 		"id": thread["id"],
 		"subject": (headers(msgs[0]).get("subject") or "").strip(),
@@ -269,7 +335,7 @@ def ingest(gm, mailbox, me, ours, team, directory, now, scope=DEFAULT_SCOPE):
 		ids += gm.thread_ids(label_ids=[label_ids[name]], limit=PER_QUERY)
 	items, changed = [], 0
 	for thread in gm.threads(ids):
-		info = read_thread(thread, me, ours, now)
+		info = read_thread(thread, me, ours, now, team)
 		if not info:
 			continue
 		item = (
@@ -277,6 +343,8 @@ def ingest(gm, mailbox, me, ours, team, directory, now, scope=DEFAULT_SCOPE):
 			if info["automated"] or info["state"] not in ("reply", "waiting")
 			else to_item(info, mailbox, team, directory, ours)
 		)
+		if item and item["who"] == "unknown" and is_cold(item["title"], info["snippet"]):
+			item, info["automated"] = None, True  # a cold pitch: no item, and @Action/@Waiting come off
 		have = {names[lb] for lb in info["labels"] if lb in names}
 		want = wanted_labels(info, item and item["topic"])
 		add = sorted(want - have)
