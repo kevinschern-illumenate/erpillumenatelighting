@@ -1,0 +1,1565 @@
+{
+  "name": "[PROD] Spec Gen & Webflow Sync",
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.illumenate.lighting/api/method/illumenate_lighting.illumenate_lighting.api.webflow_export_v2.mark_webflow_synced",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "erpNextApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"product_slug\": \"{{ $if($('(ilL) Transform to Webflow Format').isExecuted, $('(ilL) Transform to Webflow Format').first().json.originalProduct.product_slug, $('(ilL) Transform to Webflow Format').first().json.originalProduct.product_slug) }}\",\n  \"webflow_item_id\": \"{{ $('Should Publish? (New)').first().json.id }}\",\n  \"brand\": \"{{ $if($('(ilL) Transform to Webflow Format').isExecuted, $('(ilL) Transform to Webflow Format').first().json.originalProduct.brand, $('(ilL) Transform to Webflow Format').first().json.originalProduct.brand) }}\",\n  \"job\": \"{{ $if($('(ilL) Transform to Webflow Format').isExecuted, $('(ilL) Transform to Webflow Format').first().json.originalProduct.job, $('(ilL) Transform to Webflow Format').first().json.originalProduct.job) }}\",\n  \"token\": \"{{ $if($('(ilL) Transform to Webflow Format').isExecuted, $('(ilL) Transform to Webflow Format').first().json.originalProduct.token, $('(ilL) Transform to Webflow Format').first().json.originalProduct.token) }}\",\n  \"revision_hash\": \"{{ $if($('(ilL) Transform to Webflow Format').isExecuted, $('(ilL) Transform to Webflow Format').first().json.originalProduct.revision_hash, $('(ilL) Transform to Webflow Format').first().json.originalProduct.revision_hash) }}\",\n  \"payload_hash\": \"{{ $if($('(ilL) Transform to Webflow Format').isExecuted, $('(ilL) Transform to Webflow Format').first().json.originalProduct.payload_hash, $('(ilL) Transform to Webflow Format').first().json.originalProduct.payload_hash) }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2896,
+        1952
+      ],
+      "id": "2a666cd0-3a2e-47e5-93b3-8d3b46965ed5",
+      "name": "(New) Respond to ilL-Publication-Job",
+      "credentials": {
+        "erpNextApi": {
+          "id": "q5FbtRYh73x4yYeZ",
+          "name": "Webflow Marketing API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.illumenate.lighting/api/method/illumenate_lighting.illumenate_lighting.api.webflow_export_v2.mark_webflow_synced",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "erpNextApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"product_slug\": \"{{ $if($('(ilL) Transform to Webflow Format').isExecuted, $('(ilL) Transform to Webflow Format').first().json.originalProduct.product_slug, $('(ilL) Transform to Webflow Format').first().json.originalProduct.product_slug) }}\",\n  \"webflow_item_id\": \"{{ $('Should Publish? (Update)').first().json.id }}\",\n  \"brand\": \"{{ $if($('(ilL) Transform to Webflow Format').isExecuted, $('(ilL) Transform to Webflow Format').first().json.originalProduct.brand, $('(ilL) Transform to Webflow Format').first().json.originalProduct.brand) }}\",\n  \"job\": \"{{ $if($('(ilL) Transform to Webflow Format').isExecuted, $('(ilL) Transform to Webflow Format').first().json.originalProduct.job, $('(ilL) Transform to Webflow Format').first().json.originalProduct.job) }}\",\n  \"token\": \"{{ $if($('(ilL) Transform to Webflow Format').isExecuted, $('(ilL) Transform to Webflow Format').first().json.originalProduct.token, $('(ilL) Transform to Webflow Format').first().json.originalProduct.token) }}\",\n  \"revision_hash\": \"{{ $if($('(ilL) Transform to Webflow Format').isExecuted, $('(ilL) Transform to Webflow Format').first().json.originalProduct.revision_hash, $('(ilL) Transform to Webflow Format').first().json.originalProduct.revision_hash) }}\",\n  \"payload_hash\": \"{{ $if($('(ilL) Transform to Webflow Format').isExecuted, $('(ilL) Transform to Webflow Format').first().json.originalProduct.payload_hash, $('(ilL) Transform to Webflow Format').first().json.originalProduct.payload_hash) }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2896,
+        1488
+      ],
+      "id": "953d782d-d88c-499e-a5d6-102c90fdbff8",
+      "name": "(Update) Respond to ilL-Publication-Job",
+      "credentials": {
+        "erpNextApi": {
+          "id": "q5FbtRYh73x4yYeZ",
+          "name": "Webflow Marketing API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// File name (Phase 4, plan 4.7 D7): ERPNext decides it: <Template Name>_Spec Sheet.pdf, no brand\n// prefix, spaces/brackets/dots kept (context.spec_sheet_file_name from get_spec_sheet_data).\nconst productInfo = $('Get Product Info').first().json;\nconst message = productInfo.message || {};\nconst erpData = Array.isArray(message.products) ? message.products[0] : {};\nconst context = message.context || {};\n\nlet fileName = context.spec_sheet_file_name;\nif (!fileName) {\n    // Older ERPNext without the file name: the previous naming.\n    const webhookBody = $('Webhook').first().json.body || {};\n    const brandDisplayName = webhookBody.brand === 'lighting_206' ? '206 Lighting' : 'ilLumenate Lighting';\n    const productName = (erpData?.product_name || 'Product').replace(/[^a-zA-Z0-9 -\\[\\]]/g, '').trim();\n    fileName = `${brandDisplayName}_${productName}_Spec Sheet.pdf`;\n}\n\n// The processed Base64 PDF returned by Vercel\nconst base64Data = $input.item.json.pdf_base64;\nif (!base64Data) {\n    throw new Error('Missing pdf_base64 in Vercel response.');\n}\n\nreturn {\n  json: { success: true },\n  binary: {\n    data: {\n      data: base64Data,\n      mimeType: 'application/pdf',\n      fileName: fileName\n    }\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1584,
+        368
+      ],
+      "id": "d7aaeef4-8a11-4823-820d-7dbf506eb695",
+      "name": "(ilL) Convert base64 string"
+    },
+    {
+      "parameters": {
+        "url": "=https://illumenate.lighting/spec-sheet-templates/{{ ({'Extrusion Kit': 'extrusion-kit', 'Fixture Template': 'linear-fixtures', 'LED Tape': 'tape-sheets', 'COB Tape': 'tape-sheets', 'LED Sheet': 'tape-sheets', 'LED Neon': 'neon', 'Driver': 'driver', 'Controller': 'controller'})[$json.message.products[0].product_type] || $json.message.products[0].product_type.toLowerCase().replaceAll(' ', '-') }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "webflowApi",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        912,
+        368
+      ],
+      "id": "784e59fe-b7f6-46a6-a135-323153e8dea9",
+      "name": "(ilL) Fetch Webflow Template",
+      "credentials": {
+        "webflowApi": {
+          "id": "etAbMh1PwKehI2qE",
+          "name": "Webflow ilLumenate Prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Safely extract the HTML string from 'Fetch Webflow Template'\nconst templateOutput = $('(ilL) Fetch Webflow Template').first().json;\nlet html = templateOutput.data || templateOutput.body || (typeof templateOutput === 'string' ? templateOutput : null);\n\nif (!html) {\n    throw new Error(\"HTML template string is missing from 'Fetch Webflow Template'.\");\n}\n\n// 2. NUKE COOKIE CONSENT BANNERS & LAZY LOADING\nhtml = html.replace(/<script[^>]*termly[^>]*><\\/script>/gi, '');\nhtml = html.replace(/<script[^>]*cookie[^>]*><\\/script>/gi, '');\nhtml = html.replace(/loading=\"lazy\"/gi, ''); \n\n// 3. Extract fully enriched product\nlet erpData;\ntry {\n    erpData = $('Get Product Info').first().json.message.products[0];\n} catch (e) {\n    erpData = $('Get Product Info').first().json.message.products[0];\n}\n\n// Pre-process Image URLs\nif (erpData.featured_image && !erpData.featured_image.startsWith('http')) {\n    erpData.featured_image = 'https://app.illumenate.lighting' + (erpData.featured_image.startsWith('/') ? '' : '/') + erpData.featured_image;\n}\nif (erpData.dimensions_image_dark && !erpData.dimensions_image_dark.startsWith('http')) {\n    erpData.dimensions_image_dark = 'https://app.illumenate.lighting' + (erpData.dimensions_image_dark.startsWith('/') ? '' : '/') + erpData.dimensions_image_dark;\n}\n\n// 3b. Reconstruct template_doctype and template_name (Imported from 206 Script)\nconst templateMap = {\n    tape_neon_template: 'ilL-Tape-Neon-Template',\n    led_sheet_template: 'ilL-LED-Sheet-Template',\n    kit_template: 'ilL-Extrusion-Kit-Template',\n    fixture_template: 'ilL-Fixture-Template',\n    driver_template: 'ilL-Driver-Template',\n    controller_template: 'ilL-Controller-Template'\n};\n\nlet resolved_template_doctype = null;\nlet resolved_template_name = null;\n\nfor (const [key, doctype] of Object.entries(templateMap)) {\n    if (erpData[key]) {\n        resolved_template_doctype = doctype;\n        resolved_template_name = erpData[key];\n        break;\n    }\n}\n\n// 3c. Highlights for the configured spec sheet (plan 4.20, owner 2026-11-06). Per product\n// category: which specification row shows which configurator step. A row's values are split on\n// \", \" and each value that is one of the step's option labels is tagged with \"<step>:<code>\";\n// a \"whole\" row is tagged with every code of the step. The product page highlights the tags of\n// the options the visitor picked. Categories without rules get no tags.\nconst HIGHLIGHT_RULES = {\n    'Extrusion Kit': [\n        { spec: 'Lenses', step_type: 'Lens Appearance' },\n        { spec: 'Mounting', step_type: 'Mounting Method' },\n        { spec: 'Finish', step_type: 'Finish' },\n        { spec: 'Stock Length', step_type: 'Length', whole: true },\n    ],\n};\nconst parseValues = opt => {\n    if (Array.isArray(opt.allowed_values)) return opt.allowed_values;\n    try { const v = JSON.parse(opt.allowed_values_json || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; }\n};\nerpData.spec_highlights = {};\n(HIGHLIGHT_RULES[erpData.product_type] || []).forEach(rule => {\n    const step = (erpData.configurator_options || []).find(o => o.option_type === rule.step_type);\n    if (!step) return;\n    const values = parseValues(step).filter(v => v.code || v.value);\n    const token = v => step.option_step + ':' + String(v.code || v.value).trim();\n    erpData.spec_highlights[rule.spec] = rule.whole\n        ? { whole: values.map(token).join(' ') }\n        : { byLabel: Object.fromEntries(values.filter(v => v.label).map(v => [String(v.label).trim().toLowerCase(), token(v)])) };\n});\n\n// 4. Inject global window.ERP_DATA object into head + Spacing CSS\nconst dataScript = `\n<style>\n    /* Force hide any hardcoded cookie banners just in case */\n    [id*=\"termly\"], [class*=\"termly\"], #cookie-banner, .cookie-consent { display: none !important; }\n    /* Force spacing between pages for clean PDF rendering */\n    .page-wrapper { margin-bottom: 40px !important; page-break-after: always; }\n\n  .w-webflow-badge { display: none !important; visibility: hidden !important; }\n</style>\n<script>\nnew MutationObserver(() => document.querySelectorAll('.w-webflow-badge').forEach(el => el.remove()))\n    .observe(document.documentElement, {childList: true, subtree: true});\n    window.ERP_DATA = ${JSON.stringify(erpData).replace(/</g, '\\\\u003c')};\n<\\/script>`;\n\n// 5. Client-side mapping & pagination script\nconst mappingScript = `<script>\n  (function populateSpecSheet() {\n      const data = window.ERP_DATA;\n      if (!data) return;\n\n      function setText(id, value) {\n          const el = document.getElementById(id);\n          if (el && value != null && value !== '') el.innerText = value;\n      }\n      \n      function setImg(id, url) {\n          const el = document.getElementById(id);\n          if (el && url) el.src = url;\n      }\n\n      // --- A. CORE HEADERS & INFO ---\n      setText('product-name', data.product_name);\n      setText('sublabel', data.sublabel);\n\n      // --- B. IMAGES ---\n      setImg('feat-img', data.featured_image);\n      setImg('spec-dims-img', data.dimensions_image_dark);\n\n      // --- B2. DIMENSIONS TITLE (LED Neon; owner, 2026-11-19) ---\n      // The first .dimension-item's #dimension-title takes the template's Dimensions Title, or is\n      // hidden without one. (#dimension-item is the pattern for the Spec Gallery drawings.)\n      const firstDimension = document.querySelector('.dimension-item:not(#dimension-item)');\n      const firstDimensionTitle = firstDimension ? firstDimension.querySelector('#dimension-title') : null;\n      if (firstDimensionTitle) {\n          firstDimensionTitle.removeAttribute('id');\n          if (data.dimensions_title) firstDimensionTitle.innerText = data.dimensions_title;\n          else firstDimensionTitle.style.display = 'none';\n      }\n\n      // --- C. DYNAMIC SPECIFICATIONS GRID ---\n      const specSection = document.getElementById('specifications');\n      if (specSection && Array.isArray(data.specifications)) {\n          const masterSpecItem = specSection.querySelector('#spec-data-item');\n          if (masterSpecItem) {\n              masterSpecItem.style.display = 'none';\n              \n              // With an Output Options table (fixtures), its numbers are not repeated here.\n              const inTable = ((data.output_options || {}).rows || []).length\n                  ? ['Watts per Foot', 'Max Run Length', 'Max Footage per 100W Supply'] : [];\n              const filteredSpecs = data.specifications\n                  .filter(spec => spec.spec_label !== \"Output Options\" && spec.spec_label !== \"Certifications & Ratings\")\n                  .filter(spec => !inTable.includes(spec.spec_label))\n                  .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));\n\n              Array.from(specSection.children).forEach(child => {\n                  if (child.id === 'spec-data-item' && child !== masterSpecItem) child.remove();\n              });\n\n              filteredSpecs.forEach(spec => {\n                  if (spec.spec_value) {\n                      const itemClone = masterSpecItem.cloneNode(true);\n                      itemClone.style.display = '';\n                      itemClone.removeAttribute('id');\n\n                      const titleEl = itemClone.querySelector('#spec-data-title');\n                      const valueEl = itemClone.querySelector('#spec-data-value');\n\n                      if (titleEl) titleEl.innerText = spec.spec_label;\n                      if (valueEl) {\n                          let finalValue = spec.spec_value;\n                          if (spec.spec_unit) finalValue += \" \" + spec.spec_unit;\n                          valueEl.innerText = finalValue;\n                          // Configured spec sheet highlights (plan 4.20): tag the values tied to\n                          // configurator options; the PDF generator stores their positions.\n                          const rule = (data.spec_highlights || {})[spec.spec_label];\n                          const tagged = (text, tokens) => {\n                              const span = document.createElement('span');\n                              span.style.display = 'inline-block';\n                              span.textContent = text;\n                              if (tokens) span.setAttribute('data-highlight', tokens);\n                              return span;\n                          };\n                          if (rule && rule.whole) {\n                              valueEl.textContent = '';\n                              valueEl.appendChild(tagged(finalValue, rule.whole));\n                          } else if (rule && rule.byLabel) {\n                              valueEl.textContent = '';\n                              String(finalValue).split(', ').forEach((part, i) => {\n                                  if (i) valueEl.appendChild(document.createTextNode(', '));\n                                  valueEl.appendChild(tagged(part, rule.byLabel[part.trim().toLowerCase()]));\n                              });\n                          }\n                      }\n                      \n                      specSection.appendChild(itemClone);\n                  }\n              });\n              \n              const activeRows = specSection.querySelectorAll('.spec-data-item:not([style*=\"display: none\"])');\n              if (activeRows.length > 0) activeRows[activeRows.length - 1].classList.add('last-row');\n          }\n      }\n      \n      // --- D. PART NUMBER BUILDER ---\n      const builderSection = document.getElementById('part-no-builder');\n      if (builderSection && Array.isArray(data.configurator_options) && data.configurator_options.length > 0) {\n          \n          // 1. Setup Fixed Series Block\n          const seriesSlug = (data.product_slug || \"\").toUpperCase();\n          const seriesCodes = builderSection.querySelectorAll('#series-code');\n          seriesCodes.forEach(el => el.innerText = seriesSlug);\n          setText('series-desc', \"ilLumenate \" + (data.product_name || \"\"));\n          \n          // Radio button colour for the PDF generator (owner, 2026-11-18): linear fixtures\n          // #ffac33, LED Neon, LED Tape, COB Tape and LED Sheet #ff990a (owner, 2026-11-19); other\n          // products keep the generator's green.\n          const radioColor = {\n              'Fixture Template': '#ffac33',\n              'LED Neon': '#ff990a', 'LED Tape': '#ff990a', 'COB Tape': '#ff990a', 'LED Sheet': '#ff990a',\n          }[data.product_type];\n          if (radioColor) builderSection.setAttribute('data-radio-color', radioColor);\n\n          // TAG THE SERIES BUTTON FOR VERCEL. Step 0 unless a configurator step already uses 0\n          // (LED Neon's IP Rating; owner, 2026-11-19): then 'S', so the PDF fields do not clash.\n          const seriesStep = data.configurator_options.some(opt => String(opt.option_step) === '0' && opt.option_type !== 'Series') ? 'S' : '0';\n          const seriesBtn = builderSection.querySelector('#series-btn');\n          if (seriesBtn) {\n              seriesBtn.setAttribute('data-step', seriesStep);\n              seriesBtn.setAttribute('data-code', seriesSlug);\n          }\n          \n          // 2. Setup Dynamic Option Blocks\n          // Fixtures (owner, 2026-11-13): the Length step gets the .part-no-length block, a free text\n          // box tagged data-input-step for the PDF generator; each Feed Direction step gets a\n          // .part-no-feed-section (the \"feed-direction-title\" one for directions, the\n          // \"feed-length-title\" one for lengths), with no dash between a feed direction and its\n          // length. Steps 90 and up are lookup tables (Finish to Endcap Color, Fixture Output\n          // Level), not part number steps. #part-no-ex is the series and each step's first option,\n          // with 50 for the Length.\n          const wrapper = builderSection.querySelector('.part-no-wrapper');\n          if (wrapper) {\n              const dashTemplate = wrapper.querySelector('.part-no-dash');\n              const sectionTemplate = wrapper.querySelector('.part-no-section');\n              const lengthTemplate = wrapper.querySelector('.part-no-length');\n              const feedTemplates = Array.from(wrapper.querySelectorAll('.part-no-feed-section'));\n              const feedDirTemplate = feedTemplates.find(el => el.querySelector('#feed-direction-title')) || feedTemplates[0];\n              const feedLenTemplate = feedTemplates.find(el => el.querySelector('#feed-length-title')) || feedTemplates[1] || feedDirTemplate;\n\n              if (dashTemplate && sectionTemplate) {\n                  dashTemplate.style.display = 'none';\n                  sectionTemplate.style.display = 'none';\n                  [lengthTemplate, ...feedTemplates].forEach(el => { if (el) el.remove(); });\n\n                  // Clear placeholder dynamic sections\n                  Array.from(wrapper.children).forEach(child => {\n                      if (!child.classList.contains('part-1-wrapper') && child !== dashTemplate && child !== sectionTemplate) {\n                          child.remove();\n                      }\n                  });\n\n                  const addDash = () => {\n                      const dashClone = dashTemplate.cloneNode(true);\n                      dashClone.style.display = '';\n                      // The page's .part-no-dash has height: 100%, which made each row as tall as\n                      // the whole builder (the big gap under the first row; owner, 2026-11-18).\n                      dashClone.style.height = 'auto';\n                      wrapper.appendChild(dashClone);\n                  };\n\n                  const fillOptions = (sectionClone, opt, values) => {\n                      const optionsWrapper = sectionClone.querySelector('.part-no-options-wrapper');\n                      const optTemplate = sectionClone.querySelector('#part-no-options');\n                      if (!optionsWrapper || !optTemplate) return;\n                      optTemplate.style.display = 'none';\n                      Array.from(optionsWrapper.children).forEach(child => {\n                          if (child !== optTemplate) child.remove();\n                      });\n                      values.forEach(valObj => {\n                          const optClone = optTemplate.cloneNode(true);\n                          optClone.style.display = '';\n                          optClone.removeAttribute('id');\n\n                          // TAG THE DYNAMIC BUTTONS FOR VERCEL\n                          optClone.setAttribute('data-step', opt.option_step);\n                          optClone.setAttribute('data-code', valObj.code || valObj.value);\n\n                          const codeEl = optClone.querySelector('#part-no-code');\n                          const descEl = optClone.querySelector('#part-no-desc');\n                          if (codeEl) codeEl.innerText = valObj.code || '';\n                          // A blank code (a feed length's \"Endcap\") reads \"blank\" in italics, so\n                          // customers know it is left empty (owner, 2026-11-19).\n                          if (codeEl && valObj.code === '') {\n                              codeEl.innerText = 'blank';\n                              codeEl.style.fontStyle = 'italic';\n                          }\n                          if (descEl) descEl.innerText = valObj.label || valObj.value || '';\n                          optionsWrapper.appendChild(optClone);\n                      });\n                  };\n\n                  const example = [seriesSlug];\n                  let lastWasFeedDir = false;\n                  // A feed direction and its feed length share one box, so they always wrap to a\n                  // new row together (LED Neon preview; owner, 2026-11-19).\n                  let feedPair = null;\n                  const sortedConfig = data.configurator_options\n                      .filter(opt => Number(opt.option_step) < 90)\n                      .sort((a, b) => a.option_step - b.option_step);\n\n                  sortedConfig.forEach(opt => {\n                      let currentValues = [];\n                      try {\n                          currentValues = JSON.parse(opt.allowed_values_json || \"[]\");\n                      } catch(e) {}\n                      // A fixture's Output step lists its outputs per lens ({lensMap: {WH: [...]}}):\n                      // the builder shows each output once, lowest first.\n                      if (!Array.isArray(currentValues)) {\n                          const byCode = new Map();\n                          Object.values((currentValues && currentValues.lensMap) || {}).forEach(list => {\n                              (Array.isArray(list) ? list : []).forEach(v => {\n                                  if (v && v.code && !byCode.has(String(v.code))) byCode.set(String(v.code), { code: String(v.code), label: v.label || String(v.code) });\n                              });\n                          });\n                          currentValues = Array.from(byCode.values()).sort((a, b) => (parseFloat(a.code) || 0) - (parseFloat(b.code) || 0));\n                      }\n                      // The Output step lists exactly the Output Options table's outputs (owner,\n                      // 2026-11-19): no per-square-foot levels (the stray 550) and nothing the table lacks.\n                      const tableOutputs = ((data.output_options || {}).columns || []).filter(Boolean);\n                      if (opt.option_type === 'Output Level' && tableOutputs.length) {\n                          currentValues = tableOutputs.map(code => ({ code: String(code), label: code + ' lm/ft' }));\n                      }\n                      const label = opt.option_label || opt.option_type || '';\n\n                      // A free length (fixtures) has only the length metadata row; a kit's stock\n                      // length is an ordinary step.\n                      const freeLength = opt.option_type === 'Length' && currentValues.length > 0\n                          && currentValues.every(v => v && v.value === '__length_metadata__');\n                      if (freeLength) {\n                          lastWasFeedDir = false;\n                          if (!lengthTemplate) return;\n                          addDash();\n                          const lengthClone = lengthTemplate.cloneNode(true);\n                          lengthClone.style.display = '';\n                          lengthClone.setAttribute('data-input-step', opt.option_step);\n                          const lengthInput = lengthClone.querySelector('#part-no-length-input');\n                          if (lengthInput) lengthInput.innerHTML = '';\n                          wrapper.appendChild(lengthClone);\n                          example.push('50');\n                          return;\n                      }\n\n                      const values = currentValues.filter(v => v && (v.code || v.label || v.value));\n                      if (values.length === 0) return;\n                      // A blank code (a feed length's \"Endcap\"; owner, 2026-11-19) adds nothing.\n                      const firstCode = values[0].code === '' ? '' : String(values[0].code || values[0].value || '');\n\n                      // LED Neon stores the directions as Start/End Feed Direction (owner, 2026-11-19).\n                      const isFeed = ['Feed Direction', 'Start Feed Direction', 'End Feed Direction'].includes(opt.option_type) && feedDirTemplate;\n                      const isFeedLength = isFeed && /length/i.test(label);\n                      let sectionClone;\n                      if (isFeed) {\n                          // A feed length sits right after its feed direction, with no dash.\n                          if (!(isFeedLength && lastWasFeedDir)) addDash();\n                          sectionClone = (isFeedLength ? feedLenTemplate : feedDirTemplate).cloneNode(true);\n                          const titleEl = sectionClone.querySelector('#feed-direction-title, #feed-length-title, .part-no-title');\n                          if (titleEl) titleEl.innerText = label.toUpperCase();\n                          const inputEl = sectionClone.querySelector('.part-no-feeddir-input');\n                          if (inputEl) inputEl.innerHTML = '';\n                          if (isFeedLength && lastWasFeedDir) example[example.length - 1] += firstCode;\n                          else example.push(firstCode);\n                          lastWasFeedDir = !isFeedLength;\n                      } else {\n                          addDash();\n                          sectionClone = sectionTemplate.cloneNode(true);\n                          const titleEl = sectionClone.querySelector('#part-no-title');\n                          if (titleEl) titleEl.innerText = label.toUpperCase();\n                          const inputEl = sectionClone.querySelector('#part-no-code-input');\n                          if (inputEl) inputEl.innerHTML = ''; // Empty out placeholder\n                          example.push(firstCode);\n                          lastWasFeedDir = false;\n                      }\n                      sectionClone.style.display = '';\n                      fillOptions(sectionClone, opt, values);\n                      if (isFeed && !isFeedLength) {\n                          feedPair = document.createElement('div');\n                          feedPair.className = 'ill-feed-pair';\n                          feedPair.style.display = 'flex';\n                          feedPair.style.flex = '0 0 auto';\n                          wrapper.appendChild(feedPair);\n                          feedPair.appendChild(sectionClone);\n                      } else if (isFeedLength && feedPair) {\n                          feedPair.appendChild(sectionClone);\n                          feedPair = null;\n                      } else {\n                          feedPair = null;\n                          wrapper.appendChild(sectionClone);\n                      }\n                  });\n\n                  const exampleEl = document.getElementById('part-no-ex');\n                  if (exampleEl) exampleEl.innerText = example.filter(Boolean).join('-');\n                  // Rows stay 20px apart (the wrapper's row gap): a wrapper taller than its rows\n                  // would otherwise stretch them apart (owner, 2026-11-18).\n                  wrapper.style.alignContent = 'flex-start';\n                  wrapper.style.height = 'auto';\n              }\n          }\n      } else if (builderSection) {\n          builderSection.style.display = 'none';\n      }\n\n      // --- E. EXTRUSION KIT COMPONENTS ---\n      const compSection = document.getElementById('components');\n      if (compSection && Array.isArray(data.kit_components) && data.kit_components.length > 0) {\n          \n          let listWrapper = compSection.querySelector('.component-list-wrapper') || compSection.querySelector('.div-12') || compSection;\n          const masterGroup = compSection.querySelector('#component-wrapper');\n          \n          if (masterGroup) {\n              masterGroup.style.display = 'none';\n              \n              Array.from(listWrapper.children).forEach(child => {\n                  if (child.id === 'component-wrapper' && child !== masterGroup) child.remove();\n              });\n\n              data.kit_components.forEach(group => {\n                  let parsedRows = [];\n                  try {\n                      parsedRows = JSON.parse(group.component_description || \"[]\");\n                  } catch(e) {}\n                  \n                  if (parsedRows.length > 0) {\n                      const groupClone = masterGroup.cloneNode(true);\n                      groupClone.style.display = '';\n                      groupClone.removeAttribute('id');\n                      \n                      const titleEl = groupClone.querySelector('#component-title');\n                      if (titleEl) titleEl.innerText = group.component_type;\n                      \n                      let heroUrl = null;\n                      if (parsedRows[0] && parsedRows[0].hero_image) {\n                          heroUrl = parsedRows.shift().hero_image;\n                      }\n                      \n                      const imgEl = groupClone.querySelector('#component-img');\n                      if (imgEl && heroUrl) {\n                          imgEl.src = heroUrl;\n                      } else if (imgEl) {\n                          imgEl.style.display = 'none';\n                      }\n\n                      // Deduplicate and reformat Endcap Sets\n                      if (group.component_type === 'Endcap Set' || group.component_type === 'Endcaps') {\n                          const uniqueEndcaps = new Map();\n                          parsedRows.forEach(row => {\n                              if (row.code || row.label) {\n                                  const cleanCode = (row.code || '').replace(/-NO$/i, '').replace(/-HO$/i, '');\n                                  if (!uniqueEndcaps.has(cleanCode)) {\n                                      uniqueEndcaps.set(cleanCode, { code: cleanCode, label: row.label });\n                                  }\n                              }\n                          });\n                          parsedRows = Array.from(uniqueEndcaps.values());\n                      }\n\n                      const rowsContainer = groupClone.querySelector('#comp-partno-wrap');\n                      if (rowsContainer) {\n                          const masterRow = rowsContainer.querySelector('#component-option');\n                          if (masterRow) {\n                              masterRow.style.display = 'none';\n                              \n                              Array.from(rowsContainer.children).forEach(child => {\n                                  if (child !== masterRow) child.remove();\n                              });\n\n                              parsedRows.forEach(row => {\n                                  if(row.code || row.label) {\n                                      const rowClone = masterRow.cloneNode(true);\n                                      rowClone.style.display = '';\n                                      rowClone.removeAttribute('id');\n                                      \n                                      const codeEl = rowClone.querySelector('#comp-code');\n                                      const descEl = rowClone.querySelector('#comp-desc');\n                                      \n                                      if (codeEl) codeEl.innerText = row.code;\n                                      if (descEl) descEl.innerText = row.label;\n                                      \n                                      rowsContainer.appendChild(rowClone);\n                                  }\n                              });\n                              \n                              const activeOptions = rowsContainer.querySelectorAll('.component-option:not([style*=\"display: none\"])');\n                              if (activeOptions.length > 0) activeOptions[activeOptions.length - 1].classList.add('last-row');\n                          }\n                      }\n                      \n                      listWrapper.appendChild(groupClone);\n                  }\n              });\n          }\n      } else if (compSection) {\n          compSection.style.display = 'none';\n      }\n\n      // --- E2. CERTIFICATION BADGES (one .cert-icon per template certification) ---\n      // The first .cert-icon is the pattern: it is copied once per certification that has a\n      // badge (the template's Badge Image), then hidden. No badges: it stays hidden.\n      const certTemplate = document.querySelector('.cert-icon');\n      if (certTemplate) {\n          const badges = (Array.isArray(data.certifications) ? data.certifications : [])\n              .map(c => c.certification_details && c.certification_details.badge_image)\n              .filter(Boolean);\n          document.querySelectorAll('.cert-icon').forEach(el => { if (el !== certTemplate) el.remove(); });\n          let anchor = certTemplate;\n          badges.forEach(url => {\n              const icon = certTemplate.cloneNode(true);\n              icon.style.display = '';\n              icon.removeAttribute('id');\n              const img = icon.tagName === 'IMG' ? icon : icon.querySelector('img');\n              if (img) { img.src = url; img.removeAttribute('srcset'); img.removeAttribute('loading'); }\n              anchor.parentNode.insertBefore(icon, anchor.nextSibling);\n              anchor = icon;\n          });\n          certTemplate.style.display = 'none';\n      }\n\n      // --- E3. EXTRA DIMENSION IMAGES (Spec Gallery, section \"Dimensions\") ---\n      // The first .dimension-item keeps dimensions_image (#spec-dims-img). #dimension-item is the\n      // pattern for the extra ones: copied once per Dimensions row (title in #dimension-title,\n      // hidden when empty; image in #spec-dims-img-other), then hidden. No rows: stays hidden.\n      const dimTemplate = document.getElementById('dimension-item');\n      if (dimTemplate) {\n          const rows = (Array.isArray(data.spec_gallery) ? data.spec_gallery : [])\n              .filter(row => row.section === 'Dimensions' && row.image);\n          let anchor = dimTemplate;\n          rows.forEach(row => {\n              const item = dimTemplate.cloneNode(true);\n              item.style.display = '';\n              item.removeAttribute('id');\n              const titleEl = item.querySelector('#dimension-title');\n              if (titleEl) {\n                  titleEl.removeAttribute('id');\n                  if (row.title) { titleEl.innerText = row.title; } else { titleEl.style.display = 'none'; }\n              }\n              const imgEl = item.querySelector('#spec-dims-img-other');\n              if (imgEl) {\n                  imgEl.removeAttribute('id');\n                  imgEl.src = row.image;\n                  imgEl.removeAttribute('srcset');\n                  imgEl.removeAttribute('loading');\n              }\n              anchor.parentNode.insertBefore(item, anchor.nextSibling);\n              anchor = item;\n          });\n          dimTemplate.style.display = 'none';\n      }\n\n      // --- E3b. ACCESSORIES DIMENSIONS (Spec Gallery, section \"Accessories Dimensions\") ---\n      // #accdimension-item is the pattern: copied once per row (title in #accdimension-title,\n      // hidden when empty; image in #accdim-img), then removed. No rows: the section is hidden.\n      const accSection = document.getElementById('acc-dimensions');\n      if (accSection) {\n          const accTemplate = accSection.querySelector('#accdimension-item');\n          const accRows = (Array.isArray(data.spec_gallery) ? data.spec_gallery : [])\n              .filter(row => row.section === 'Accessories Dimensions' && row.image);\n          if (!accTemplate || accRows.length === 0) {\n              accSection.style.display = 'none';\n          } else {\n              let anchor = accTemplate;\n              accRows.forEach(row => {\n                  const item = accTemplate.cloneNode(true);\n                  item.removeAttribute('id');\n                  const titleEl = item.querySelector('#accdimension-title');\n                  if (titleEl) {\n                      titleEl.removeAttribute('id');\n                      if (row.title) { titleEl.innerText = row.title; } else { titleEl.style.display = 'none'; }\n                  }\n                  const imgEl = item.querySelector('#accdim-img');\n                  if (imgEl) {\n                      imgEl.removeAttribute('id');\n                      imgEl.src = row.image;\n                      imgEl.removeAttribute('srcset');\n                      imgEl.removeAttribute('loading');\n                  }\n                  anchor.parentNode.insertBefore(item, anchor.nextSibling);\n                  anchor = item;\n              });\n              accTemplate.remove();\n          }\n      }\n\n      // --- E3c. COMPATIBLE POWER SUPPLIES (the template's table, by max wattage) ---\n      // The columns follow the page's .table-title headers (matched by their text); the first\n      // .table-item-wrapper is the row pattern, its .table-item cells in the same order. The\n      // last row gets last-row. No rows: the section is hidden.\n      const supplySection = document.getElementById('power-supplies');\n      if (supplySection) {\n          const supplies = Array.isArray(data.custom_compatible_power_supplies) ? data.custom_compatible_power_supplies : [];\n          const body = supplySection.querySelector('.table-data-wrapper');\n          const pattern = body ? body.querySelector('.table-item-wrapper') : null;\n          if (!supplies.length || !body || !pattern) {\n              supplySection.style.display = 'none';\n          } else {\n              const SUPPLY_COLUMNS = {\n                  'part number': 'part_number',\n                  'input protocol': 'input_protocol',\n                  'voltage/frequency': 'voltagefrequency',\n                  'output voltage': 'output_voltage',\n                  'max wattage': 'max_wattage',\n                  'output count': 'output_count',\n                  'location rating': 'location_rating',\n              };\n              const columns = Array.from(supplySection.querySelectorAll('.table-title-wrapper .table-title'))\n                  .map(el => SUPPLY_COLUMNS[el.innerText.trim().toLowerCase()] || null);\n              Array.from(body.children).forEach(child => child.remove());\n              supplies.forEach((supply, r) => {\n                  const line = pattern.cloneNode(true);\n                  line.classList.toggle('last-row', r === supplies.length - 1);\n                  line.querySelectorAll('.table-item').forEach((cell, i) => {\n                      const key = columns[i];\n                      cell.innerText = key && supply[key] != null ? String(supply[key]) : '';\n                  });\n                  body.appendChild(line);\n              });\n          }\n      }\n\n      // --- E3d. EMISSION ANGLE and BEND DIAMETER (LED Neon; owner, 2026-11-19) ---\n      // From the Spec Gallery rows of those Sections: the item (#emission-item / #benddia-item)\n      // is copied once per row, its title (hidden when empty) and image filled, then removed.\n      // No rows: the section is hidden.\n      const gallerySection = (sectionId, itemId, titleId, imgId, gallerySectionName) => {\n          const section = document.getElementById(sectionId);\n          if (!section) return;\n          const pattern = section.querySelector('#' + itemId);\n          const rows = (Array.isArray(data.spec_gallery) ? data.spec_gallery : [])\n              .filter(row => row.section === gallerySectionName && row.image);\n          if (!pattern || rows.length === 0) { section.style.display = 'none'; return; }\n          let anchor = pattern;\n          rows.forEach(row => {\n              const item = pattern.cloneNode(true);\n              item.removeAttribute('id');\n              const titleEl = item.querySelector('#' + titleId);\n              if (titleEl) {\n                  titleEl.removeAttribute('id');\n                  if (row.title) { titleEl.innerText = row.title; } else { titleEl.style.display = 'none'; }\n              }\n              const imgEl = item.querySelector('#' + imgId);\n              if (imgEl) {\n                  imgEl.removeAttribute('id');\n                  imgEl.src = row.image;\n                  imgEl.removeAttribute('srcset');\n                  imgEl.removeAttribute('loading');\n              }\n              anchor.parentNode.insertBefore(item, anchor.nextSibling);\n              anchor = item;\n          });\n          pattern.remove();\n      };\n      gallerySection('emission-angle', 'emission-item', 'emission-title', 'emission-img', 'Emission Angle');\n      gallerySection('bend-diameter', 'benddia-item', 'benddia-title', 'benddia-img', 'Bend Diameter(s)');\n\n      // --- E3e. MOUNTING ACCESSORIES (LED Neon; owner, 2026-11-19) ---\n      // #mounting-acc: the first .component-option is the row pattern, copied once per accessory\n      // (#acc-code: the item code; #acc-desc: its Item Name); the last row gets last-row.\n      // No accessories: the block is hidden.\n      const mountSection = document.getElementById('mounting-acc');\n      if (mountSection) {\n          const accessories = Array.isArray(data.mounting_accessories) ? data.mounting_accessories : [];\n          const wrap = mountSection.querySelector('.comp-partno-wrap');\n          const pattern = wrap ? wrap.querySelector('.component-option') : null;\n          if (!accessories.length || !pattern) {\n              mountSection.style.display = 'none';\n          } else {\n              Array.from(wrap.children).forEach(child => child.remove());\n              accessories.forEach((accessory, i) => {\n                  const line = pattern.cloneNode(true);\n                  line.removeAttribute('id');\n                  line.classList.toggle('last-row', i === accessories.length - 1);\n                  const codeEl = line.querySelector('#acc-code');\n                  const descEl = line.querySelector('#acc-desc');\n                  if (codeEl) { codeEl.innerText = accessory.code || ''; codeEl.removeAttribute('id'); }\n                  if (descEl) { descEl.innerText = accessory.label || ''; descEl.removeAttribute('id'); }\n                  wrap.appendChild(line);\n              });\n          }\n      }\n\n      // Accessories Dimensions on LED Neon: #acc-label under each image has no data yet; hidden.\n      document.querySelectorAll('[id=\"acc-label\"]').forEach(el => { el.style.display = 'none'; });\n\n      // --- GRADIENT LINES (owner, 2026-11-13) ---\n      // The page has one header and one footer gradient line per family (#fs-, #sw-, #tw-,\n      // #dw-gradient-line and #fsfooter-... to #dwfooter-gradient-line). The template's LED\n      // packages pick the ones shown; the others are hidden. No known package: nothing changes.\n      const GRADIENTS = {\n          'ilLumenate Static White': 'sw',\n          'ilLumenate Tunable White': 'tw',\n          // RGBW has its own cc line where the page has one (LED Neon; owner, 2026-11-19).\n          'ilLumenate RGBW': document.querySelector('[id=\"cc-gradient-line\"]') ? 'cc' : 'fs',\n          'ilLumenate RGB+TW': 'fs',\n          'ilLumenate Color Changing Pixel': 'fs',\n          'ilLumenate Dim to Warm': 'dw',\n      };\n      const shownGradients = new Set((data.led_packages || []).map(p => GRADIENTS[p]).filter(Boolean));\n      if (shownGradients.size > 0) {\n          ['fs', 'sw', 'tw', 'dw', 'cc'].forEach(key => {\n              // Ids may repeat (the neon page's footer cc line shares its id with the header one).\n              document.querySelectorAll('[id=\"' + key + '-gradient-line\"], [id=\"' + key + 'footer-gradient-line\"]').forEach(line => {\n                  line.style.display = shownGradients.has(key) ? '' : 'none';\n              });\n          });\n      }\n\n      // --- E5. OUTPUT OPTIONS (fixtures; owner, 2026-11-18) ---\n      // #output-options: in .table-title-wrapper the first .table-title keeps its text and #output\n      // (or the second .table-title) is the pattern for the output columns; in\n      // .table-data-wrapper the first .table-item-wrapper is the row pattern: its first child\n      // (the .spec-h3) takes the row label (\"Fixture Wattage (White Lens)\") and #output-data (or\n      // the second child) is the pattern for the values. The last row gets last-row. No rows:\n      // the section is hidden.\n      const optionSection = document.getElementById('output-options');\n      if (optionSection) {\n          const options = data.output_options || {};\n          const columns = options.columns || [];\n          const optionRows = options.rows || [];\n          const head = optionSection.querySelector('.table-title-wrapper');\n          const body = optionSection.querySelector('.table-data-wrapper');\n          const rowPattern = body ? body.querySelector('.table-item-wrapper') : null;\n          const titles = head ? Array.from(head.querySelectorAll('.table-title')) : [];\n          if (!columns.length || !optionRows.length || !rowPattern || titles.length < 2) {\n              optionSection.style.display = 'none';\n          } else {\n              const titlePattern = head.querySelector('#output') || titles[1];\n              titles.slice(1).forEach(el => el.remove());\n              columns.forEach(column => {\n                  const cell = titlePattern.cloneNode(true);\n                  cell.removeAttribute('id');\n                  cell.innerText = column;\n                  head.appendChild(cell);\n              });\n              const items = Array.from(rowPattern.children);\n              const cellPattern = rowPattern.querySelector('#output-data') || items[1] || items[0];\n              Array.from(body.children).forEach(child => child.remove());\n              optionRows.forEach((row, r) => {\n                  const line = rowPattern.cloneNode(false);\n                  line.classList.toggle('last-row', r === optionRows.length - 1);\n                  const label = items[0].cloneNode(true);\n                  label.removeAttribute('id');\n                  label.innerText = row.label || '';\n                  line.appendChild(label);\n                  (row.values || []).forEach(value => {\n                      const cell = cellPattern.cloneNode(true);\n                      cell.removeAttribute('id');\n                      cell.innerText = value;\n                      line.appendChild(cell);\n                  });\n                  body.appendChild(line);\n              });\n          }\n      }\n\n      // --- E4. DELIVERED LUMENS (fixtures; owner, 2026-11-13) ---\n      // Header: the first .table-title is \"Output\"; the next ones (#lumen-table-lens) take the\n      // template's lenses in order. Rows: the first .table-item-wrapper is the pattern, copied once\n      // per output (#output-item, then #output-c1..c4 for the lenses). Cells for lenses the\n      // template does not have are removed. No rows: the section is hidden.\n      const lumenSection = document.getElementById('delivered-lumens');\n      if (lumenSection) {\n          const lumens = data.delivered_lumens || {};\n          const lenses = lumens.lenses || [];\n          const lumenRows = lumens.rows || [];\n          if (!lenses.length || !lumenRows.length) {\n              lumenSection.style.display = 'none';\n          } else {\n              const head = lumenSection.querySelector('.table-title-wrapper');\n              const lensCells = head ? Array.from(head.querySelectorAll('.table-title')).slice(1) : [];\n              lensCells.forEach((cell, i) => {\n                  if (i < lenses.length) { cell.innerText = lenses[i].label; cell.removeAttribute('id'); }\n                  else cell.remove();\n              });\n              const body = lumenSection.querySelector('.table-data-wrapper');\n              const pattern = body ? body.querySelector('.table-item-wrapper') : null;\n              if (body && pattern) {\n                  Array.from(body.children).forEach(child => child.remove());\n                  lumenRows.forEach((row, r) => {\n                      const line = pattern.cloneNode(true);\n                      line.classList.toggle('last-row', r === lumenRows.length - 1);\n                      const label = line.querySelector('#output-item');\n                      if (label) { label.innerText = row.output || ''; label.removeAttribute('id'); }\n                      for (let i = 1; i <= 4; i++) {\n                          const cell = line.querySelector('#output-c' + i);\n                          if (!cell) continue;\n                          if (i <= lenses.length) {\n                              cell.innerText = (row.values || {})[lenses[i - 1].key] || '—';\n                              cell.removeAttribute('id');\n                          } else {\n                              cell.remove();\n                          }\n                      }\n                      body.appendChild(line);\n                  });\n              }\n          }\n      }\n\n      // --- F. GENERATED DATE (Strictly MMDDYY) ---\n      const now = new Date();\n      const mm = String(now.getMonth() + 1).padStart(2, '0');\n      const dd = String(now.getDate()).padStart(2, '0');\n      const yy = String(now.getFullYear()).slice(-2);\n      \n      // <TAG>.<MMDDYY> from ERPNext (tag of the stored file, Pacific date); the date alone if missing.\n      setText('generated-date', data.spec_sheet_stamp || (mm + dd + yy));\n\n      // --- G. PAGINATION LOGIC (1056px Max Height) ---\n      // Measured once the page and its web fonts have loaded: measured in the fallback font, text\n      // wrapped less than in the PDF and a section could run into the footer (owner, 2026-11-18).\n      // SAFETY keeps a little room for what still differs when the PDF is drawn.\n      const paginate = () => {\n      const PAGE_HEIGHT = 1056; \n      const SAFETY = 12;\n      const container = document.querySelector('.pdf-spec-container');\n      let currentPage = document.querySelector('.page-wrapper');\n      \n      if (container && currentPage) {\n          // Measured by its content: with its 1056px minimum height a page always measured full\n          // once the safety margin was taken off (owner, 2026-11-18). Pages get 1056px at the end.\n          currentPage.style.height = 'auto';\n          currentPage.style.minHeight = '0px';\n          \n          let currentMain = currentPage.querySelector('.spec-main-wrapper');\n          const sections = Array.from(currentMain.children);\n          \n          currentMain.innerHTML = '';\n          \n          function addPage() {\n              const newPage = currentPage.cloneNode(true);\n              const newMain = newPage.querySelector('.spec-main-wrapper');\n              newMain.innerHTML = ''; \n              container.appendChild(newPage);\n              currentPage = newPage;\n              currentMain = newMain;\n          }\n\n          // Page rules (owner, 2026-11-18):\n          // - the Part Number Builder always starts its own page, title and example included;\n          // - a kit's Components start their own page (fixtures' flow on);\n          // - a section split over two pages keeps its title (.spec-h2, and the builder's\n          //   example line) with the content that follows it.\n          const visible = el => el.style.display !== 'none';\n          const pageHasContent = () => Array.from(currentMain.children).some(visible);\n          const isHeading = el => el.classList.contains('spec-h2') || !!el.querySelector('#part-no-ex') || el.id === 'part-no-ex';\n          sections.forEach(section => {\n              const ownPage = visible(section) && (section.id === 'part-no-builder'\n                  || (section.id === 'components' && data.product_type === 'Extrusion Kit'));\n              if (ownPage && pageHasContent()) addPage();\n\n              currentMain.appendChild(section);\n              if (currentPage.scrollHeight <= PAGE_HEIGHT - SAFETY) return;\n\n              currentMain.removeChild(section);\n              let activeSection = section.cloneNode(false);\n              currentMain.appendChild(activeSection);\n              Array.from(section.children).forEach(item => {\n                  activeSection.appendChild(item);\n                  if (currentPage.scrollHeight <= PAGE_HEIGHT - SAFETY) return;\n                  // Carry the titles just before this item along with it.\n                  const moving = [item];\n                  while (moving[0].previousElementSibling && isHeading(moving[0].previousElementSibling)) {\n                      moving.unshift(moving[0].previousElementSibling);\n                  }\n                  const emptied = moving.length === activeSection.children.length;\n                  // Nothing else on this page: moving would not help, so it stays.\n                  if (emptied && Array.from(currentMain.children).filter(visible).length === 1) return;\n                  moving.forEach(el => activeSection.removeChild(el));\n                  if (emptied) currentMain.removeChild(activeSection);\n                  addPage();\n                  activeSection = section.cloneNode(false);\n                  currentMain.appendChild(activeSection);\n                  moving.forEach(el => activeSection.appendChild(el));\n              });\n          });\n          \n          const allPages = document.querySelectorAll('.page-wrapper');\n          allPages.forEach((page, idx) => {\n              page.style.height = PAGE_HEIGHT + 'px';\n              page.style.minHeight = PAGE_HEIGHT + 'px';\n              page.style.overflow = 'hidden';\n              \n              const curEl = page.querySelector('#current-page-no');\n              const totEl = page.querySelector('#total-page-no');\n              if (curEl) curEl.innerText = (idx + 1).toString();\n              if (totEl) totEl.innerText = allPages.length.toString();\n          });\n      }\n      };\n      const fontsReady = () => (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve());\n      if (document.readyState === 'complete') fontsReady().then(paginate);\n      else window.addEventListener('load', () => fontsReady().then(paginate));\n\n  })();\n<\\/script>`;\n\n// 6. Build final HTML string\nlet finalHtml = html;\nconst headCloseIndex = finalHtml.indexOf('</head>');\nif (headCloseIndex !== -1) {\n    finalHtml = finalHtml.substring(0, headCloseIndex) + dataScript + finalHtml.substring(headCloseIndex);\n}\n\nconst bodyCloseIndex = finalHtml.lastIndexOf('</body>');\nif (bodyCloseIndex !== -1) {\n    finalHtml = finalHtml.substring(0, bodyCloseIndex) + mappingScript + finalHtml.substring(bodyCloseIndex);\n}\n\n// 7. Output matching data structure!\nreturn {\n    json: {\n        injected_html: finalHtml,\n        product_slug: erpData.product_slug,\n        // The generator reads allowed_values (parsed) for the default selections.\n        configurator_options: (erpData.configurator_options || []).map(opt => ({ ...opt, allowed_values: parseValues(opt) })),\n        template_doctype: resolved_template_doctype,\n        template_name: resolved_template_name\n    }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        368
+      ],
+      "id": "4ca148ea-cdea-43cf-b6dc-50d74041a76f",
+      "name": "(ilL) Format Data to Inject"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.webflow.com/v2/collections/{{ $('Set Brand Config').first().json.webflow_collection_id }}/items/publish",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"itemIds\": [\n    \"{{ $json.id }}\"\n  ]\n}",
+        "options": {}
+      },
+      "id": "65297c17-95f2-4a0f-8403-106f77519917",
+      "name": "(ilL) Publish Webflow Item (New)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2656,
+        1744
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ERCkeAfdcLoATXDa",
+          "name": "Webflow ilLumenate"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.webflow.com/v2/collections/{{ $('Set Brand Config').first().json.webflow_collection_id }}/items/publish",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"itemIds\": [\n    \"{{ $json.id }}\"\n  ]\n}",
+        "options": {}
+      },
+      "id": "e0ecf31b-9f3a-48c8-aefd-4d9c225f323e",
+      "name": "(ilL) Publish Webflow Item (Update)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2656,
+        1280
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ERCkeAfdcLoATXDa",
+          "name": "Webflow ilLumenate"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Code for the \"(ilL) Transform to Webflow Format\" node in the staging sync workflow (W2).\n// Field mapping signed off by the owner on 2026-11-04/05: docs/erpnext_spec_sheet_redesign_plan.md\n// sections 4.16 and 4.19. The template's fields come from payload.template (ERPNext\n// webflow_sync_payload.template_section); the product's from payload.product (the export).\n// Fields not listed here are never sent, so Webflow keeps whatever they hold.\nconst data = $('Set Brand Config').first().json;\nconst payload = data.payload || {};\nconst product = data.enriched_product || {};\nconst tpl = payload.template || null;\nconst brand = data.brand;\nconst everPublished = Boolean(payload.webflow_state && payload.webflow_state.ever_published);\n\nconst baseUrl = String((payload.brand && payload.brand.erpnext_base_url) || 'https://app.illumenate.lighting').replace(/\\/$/, '');\n// Spaces and other characters Webflow cannot fetch are percent-encoded; existing %XX escapes,\n// slashes and brackets are kept, so an already encoded URL is not encoded twice.\nconst encodeUrl = url => String(url).replace(/[^A-Za-z0-9\\-._~:/?#\\[\\]@!$&'()*+,;=%]/g, ch => encodeURIComponent(ch));\nconst fullUrl = path => (!path ? null : encodeUrl(/^https?:\\/\\//.test(path) ? path : baseUrl + (path.startsWith('/') ? '' : '/') + path));\nconst json = list => (Array.isArray(list) && list.length ? JSON.stringify(list) : '');\n\n// --- Status (plan 4.19 Q1): Published/Discontinued are published; a Webflow Draft is staged\n// only, or published hidden once it was ever published; Archived is archived. Unknown values\n// fail closed (never public).\nlet isDraft = false;\nlet isArchived = false;\nlet hiddenFromPublic = true;\n// The template's Product Status can override the product's Webflow Status (owner, 2026-11-08,\n// plan 4.3): ERPNext sends the status to use as webflow_state.effective_status.\nconst effectiveStatus = payload.webflow_state && payload.webflow_state.effective_status;\nswitch ((effectiveStatus != null ? effectiveStatus : product.custom_webflow_status) || '') {\n  case 'Published':\n  case 'Discontinued':\n    hiddenFromPublic = false;\n    break;\n  case 'Archived':\n    isArchived = true;\n    break;\n  default: // Webflow Draft, empty or unknown\n    isDraft = !everPublished;\n}\n\n// --- Kit components: grouped by component type in template order, the same output as the\n// spec sheet's Get Product Info: [{component_type, component_description: JSON of\n// [{hero_image}, {code, label}, ...]}].\nfunction kitGroups(rows) {\n  const groups = new Map();\n  for (const row of rows || []) {\n    if (!row.component_type) continue;\n    if (!groups.has(row.component_type)) groups.set(row.component_type, {image: null, items: []});\n    const group = groups.get(row.component_type);\n    if (!group.image && row.component_image) group.image = fullUrl(row.component_image);\n    group.items.push({code: row.component_item || '', label: String(row.component_description || '').trim()});\n  }\n  return Array.from(groups, ([type, group]) => ({\n    component_type: type,\n    component_description: JSON.stringify([...(group.image ? [{hero_image: group.image}] : []), ...group.items], null, 1),\n  }));\n}\n\nlet galleryFormatted = (product.gallery_images || [])\n  .map(img => fullUrl(img.image_url || img.file_url || img.image))\n  .filter(Boolean)\n  .map(url => ({url}));\n\nconst generatedSlug = product.product_slug || String(product.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');\n\n// Pacific date at noon UTC.\nconst pt = new Date(new Date().toLocaleString('en-US', {timeZone: 'America/Los_Angeles'}));\nconst finalSyncDate = `${pt.getFullYear()}-${String(pt.getMonth() + 1).padStart(2, '0')}-${String(pt.getDate()).padStart(2, '0')}T12:00:00.000Z`;\n\nconst fieldData = {\n  // 1, 2, 12, 14\n  name: (tpl && tpl.display_name) || product.product_name || product.name,\n  slug: generatedSlug,\n  'last-synced': finalSyncDate,\n  'erp-sync-id': product.name,\n  // 3\n  'hidden-from-public': hiddenFromPublic,\n  // 7 to 10 (product)\n  'short-description': product.short_description || '',\n  'featured-image': fullUrl(product.featured_image),\n  gallery: galleryFormatted.length ? galleryFormatted : null,\n  'family-image': fullUrl(product.series_family_image),\n  // 11, 26 (template)\n  'series-display-name': tpl ? (tpl.series_name || '') : (product.series_display_name || ''),\n  subheading: tpl ? (tpl.sublabel || '') : (product.sublabel || ''),\n  // The product's Dimensions Image; the template's is for the spec sheet only (owner, 2026-11-06).\n  dimensions: fullUrl(product.dimensions_image_light || product.dimensions_image),\n  // 13, 15, 17, 19, 20, 28 (product)\n  'is-configurable-3': product.is_configurable === 1 || product.is_configurable === true,\n  'attribute-links-json': json(product.attribute_links),\n  'compatible-products-json': json(product.compatible_products),\n  // In display order, so the Spec Sheet (the stable spec_sheet_public_url link, order 1) is first.\n  'documents-json': json((product.documents || []).slice().sort((a, b) => (a.display_order || 0) - (b.display_order || 0))),\n  'features-json': product.features_json || json(product.features),\n  'product-badge': product.product_badge || '',\n  // Web Badge (owner, 2026-11-05): the product's webflow_badge into the new web-badge field.\n  'web-badge': product.webflow_badge || '',\n  // 16, 18, 22, 23 (template)\n  'certifications-json': json(((tpl && tpl.certifications) || []).map(row => ({...row, badge_image: fullUrl(row.badge_image)}))),\n  'configurator-options-json': json(tpl ? tpl.configurator : []),\n  'kit-components-json': json(kitGroups(tpl ? tpl.kit_components : [])),\n  'specifications-json': json(tpl ? tpl.specifications : []),\n};\n// 25: template Price per Foot (MSRP), else Base Price (MSRP)\nif (tpl && tpl.price_per_foot_msrp != null) fieldData['price-per-foot-msrp'] = tpl.price_per_foot_msrp;\n// 6: category reference (this brand's category item)\nif (product.category_webflow_item_id) fieldData.category = product.category_webflow_item_id;\n\nreturn {\n  json: {\n    originalProduct: {\n      webflow_item_id: product.webflow_item_id || null,\n      product_slug: generatedSlug,\n      brand,\n      job: data.job || '',\n      token: data.token || '',\n      revision_hash: data.revision_hash || '',\n      payload_hash: data.payload_hash || '',\n    },\n    webflow_collection_id: data.webflow_collection_id,\n    webflowData: {isArchived, isDraft, fieldData},\n  },\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        1504
+      ],
+      "id": "9d4379bc-0bbf-4266-a231-bb4fc7169670",
+      "name": "(ilL) Transform to Webflow Format"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://erpnext-pdf-generator.vercel.app/api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n  {\n    \"html\": $('(ilL) Format Data to Inject').first().json.injected_html,\n    \"configurator_options\": $('(ilL) Format Data to Inject').first().json.configurator_options,\n    \"product_slug\": $('(ilL) Format Data to Inject').first().json.product_slug,\n    \"brand\": \"illumenate\"\n  }\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1376,
+        368
+      ],
+      "id": "5468f335-5dfd-4ab4-96cf-c83cf5bab260",
+      "name": "(ilL) Vercel HTTP Request"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.webflow.com/v2/collections/{{ $json.webflow_collection_id }}/items",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.webflowData) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1760,
+        2016
+      ],
+      "id": "df6e55f7-e978-403f-b726-58f29b56d29c",
+      "name": "(ilL) Webflow: Create Product",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ERCkeAfdcLoATXDa",
+          "name": "Webflow ilLumenate"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.webflow.com/v2/collections/{{ $json.webflow_collection_id }}/items/{{ $('Webhook (ilL-Publish-Job)').item.json.body.remote_item_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.webflowData) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1920,
+        1456
+      ],
+      "id": "aebbbc96-1a84-4eec-b88c-d5d06570b462",
+      "name": "(ilL) Webflow: Update Product",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ERCkeAfdcLoATXDa",
+          "name": "Webflow ilLumenate"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"success\": false, \"error\": \"brand not enabled in this environment\"}",
+        "options": {
+          "responseCode": 409
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2400,
+        1200
+      ],
+      "id": "138e7287-187a-5341-b6e4-776a8d4b11d1",
+      "name": "Brand not enabled"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 4
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Set Brand Config').first().json.brand }}",
+                    "rightValue": "illumenate",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "ca6f2856-8117-4fea-b1ea-4b714d6b01e6"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ilLumenate"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 4
+                },
+                "conditions": [
+                  {
+                    "id": "5643ac5a-16f3-44d8-b88e-a03fa8cc6eaf",
+                    "leftValue": "={{ $('Set Brand Config').first().json.brand }}",
+                    "rightValue": "lighting_206",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "206 Lighting"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.5,
+      "position": [
+        1440,
+        2000
+      ],
+      "id": "72fc95a9-b06a-482b-a918-c3403196001c",
+      "name": "Brand: New Product"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Set Brand Config').first().json.brand }}",
+                    "operator": {
+                      "operation": "equals",
+                      "type": "string"
+                    },
+                    "rightValue": "illumenate"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 4
+                }
+              },
+              "renameOutput": true,
+              "outputKey": "ilLumenate"
+            },
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Set Brand Config').first().json.brand }}",
+                    "operator": {
+                      "operation": "equals",
+                      "type": "string"
+                    },
+                    "rightValue": "lighting_206"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 4
+                }
+              },
+              "renameOutput": true,
+              "outputKey": "206 Lighting"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "14561fe1-470d-488b-bfee-f24e6142c76b",
+      "name": "Brand: Publish (New)",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.5,
+      "position": [
+        2432,
+        1840
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Set Brand Config').first().json.brand }}",
+                    "operator": {
+                      "operation": "equals",
+                      "type": "string"
+                    },
+                    "rightValue": "illumenate"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 4
+                }
+              },
+              "renameOutput": true,
+              "outputKey": "ilLumenate"
+            },
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Set Brand Config').first().json.brand }}",
+                    "operator": {
+                      "operation": "equals",
+                      "type": "string"
+                    },
+                    "rightValue": "lighting_206"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 4
+                }
+              },
+              "renameOutput": true,
+              "outputKey": "206 Lighting"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "90bd0dc4-6751-465c-8b2b-a52b9c73edce",
+      "name": "Brand: Publish (Update)",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.5,
+      "position": [
+        2432,
+        1376
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 4
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Set Brand Config').first().json.brand }}",
+                    "rightValue": "illumenate",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "ca6f2856-8117-4fea-b1ea-4b714d6b01e6"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ilLumenate"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 4
+                },
+                "conditions": [
+                  {
+                    "id": "5643ac5a-16f3-44d8-b88e-a03fa8cc6eaf",
+                    "leftValue": "={{ $('Set Brand Config').first().json.brand }}",
+                    "rightValue": "lighting_206",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "206 Lighting"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.5,
+      "position": [
+        1424,
+        1520
+      ],
+      "id": "ee20981e-1d29-44d4-bbfb-5f72d1d07143",
+      "name": "Brand: Update Product"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "bb23aaae-dbdf-4021-a8a2-77c59fae32e1",
+              "leftValue": "={{ $('Webhook (ilL-Publish-Job)').item.json.body.remote_item_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1104,
+        1600
+      ],
+      "id": "de5c7122-604d-4aff-a555-8eaffab64388",
+      "name": "Exists in Webflow?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Code for the \"Get Product Info\" node in the staging spec workflow (owner mapping 2026-11-02,\n// docs/erpnext_spec_sheet_redesign_plan.md). Builds the record the Format nodes read\n// (window.ERP_DATA) from get_spec_sheet_data: from the TEMPLATE where the owner mapped it,\n// from legacy only for photometrics and colorimetry.\nconst data = $input.first().json.message;\nif (!data || !data.template) {\n  throw new Error('get_spec_sheet_data returned no template for ' + JSON.stringify(data && data.context));\n}\nconst t = data.template;\nconst ctx = data.context || {};\nconst legacy = data.legacy || {};\nconst base = (ctx.base_url || '').replace(/\\/$/, '');\nconst absolute = url => (!url ? null : /^https?:\\/\\//.test(url) ? url : base + (url.startsWith('/') ? '' : '/') + url);\n\nconst record = {\n  // Template identity\n  product_name: t.display_name || t.template_name || t.name,\n  sublabel: t.sublabel || '',\n  product_slug: String(t.template_code || t.name || '').toLowerCase(),\n  product_type: ctx.product_type || legacy.product_type,\n  // Template images (relative paths; the Format nodes make featured/dimension images absolute)\n  featured_image: t.hero_image || null,\n  dimensions_image_dark: t.dimensions_image || null,\n  custom_dimensions_image_2: t.dimensions_image || null,\n  // <TAG>.<MMDDYY> for #generated-date: the tag in the stored file name and the Pacific date\n  // (owner, 2026-11-04). Made by ERPNext before the PDF is drawn.\n  spec_sheet_stamp: ctx.spec_sheet_stamp || null,\n  // Template link, so the Format nodes still find the template doctype and name\n  [{\n    'ilL-Tape-Neon-Template': 'tape_neon_template',\n    'ilL-LED-Sheet-Template': 'led_sheet_template',\n    'ilL-Extrusion-Kit-Template': 'kit_template',\n    'ilL-Fixture-Template': 'fixture_template',\n    'ilL-Driver-Template': 'driver_template',\n    'ilL-Controller-Template': 'controller_template',\n  }[ctx.template_doctype] || 'template']: ctx.template_id,\n};\n\n// Specifications: label, value and order only.\nrecord.specifications = (t.specifications || []).map(row => ({\n  spec_label: row.spec_label,\n  spec_value: row.spec_value,\n  display_order: row.display_order || 0,\n}));\n\n// Part number builder: the template's Part No. Configurator, unless the brand gets none.\nconst STEP_FIELDS = ['option_step', 'option_type', 'option_label', 'option_description', 'is_required', 'depends_on_step', 'allowed_values_json'];\nrecord.configurator_options = ctx.include_configurator === false ? [] :\n  (t.part_no_configurator || []).map(row => Object.fromEntries(STEP_FIELDS.map(f => [f, row[f] ?? null])));\n\n// Kit components: the template's rows, grouped here by component type in template order\n// (owner, 2026-11-03). Each group's component_description is a JSON string:\n// [{hero_image}, {code, label}, ...]. hero_image is the group's Component Image (the first\n// item's Variant Of image, set on template save); labels are each row's Description, trimmed.\nconst groups = new Map();\nfor (const row of t.kit_components || []) {\n  if (!row.component_type) continue;\n  if (!groups.has(row.component_type)) groups.set(row.component_type, {image: null, items: []});\n  const group = groups.get(row.component_type);\n  if (!group.image && row.component_image) group.image = absolute(row.component_image);\n  group.items.push({code: row.component_item || '', label: String(row.component_description || '').trim()});\n}\nrecord.kit_components = Array.from(groups, ([type, group]) => ({\n  component_type: type,\n  component_description: JSON.stringify([...(group.image ? [{hero_image: group.image}] : []), ...group.items], null, 1),\n}));\n\n// Certifications: the template's rows; the badge is the brand's dark badge (Badge Image).\nconst legacyCodes = Object.fromEntries((legacy.certifications || []).map(c => [c.certification, c.certification_details?.certification_code]));\nrecord.certifications = (t.certifications || []).filter(row => row.certification).map(row => ({\n  certification: row.certification,\n  certification_details: {\n    certification_code: legacyCodes[row.certification] || row.certification,\n    badge_image: absolute(row.badge_image),\n    '206_badge_dark': absolute(row.badge_image),\n  },\n}));\n\n// Spec Gallery (owner, 2026-11-04): extra images per spec sheet section, in table order.\nrecord.spec_gallery = (t.spec_gallery || [])\n  .filter(row => row.gallery_section && row.gallery_img)\n  .map(row => ({\n    section: row.gallery_section,\n    title: String(row.gallery_title || '').trim(),\n    image: absolute(row.gallery_img),\n  }));\n\n// Compatible power supplies: the template's table (owner, 2026-11-05), sorted by max wattage\n// on save. The Format nodes still read the old key custom_compatible_power_supplies.\nconst SUPPLY_FIELDS = ['part_number', 'input_protocol', 'voltagefrequency', 'output_voltage', 'max_wattage', 'location_rating', 'output_count'];\nrecord.custom_compatible_power_supplies = (t.compatible_power_supplies || [])\n  .map(row => Object.fromEntries(SUPPLY_FIELDS.map(f => [f, row[f] ?? ''])));\n\n// Delivered lumens per foot (owner, 2026-11-13; fixture templates): the lenses the template has,\n// in White, Frosted, Clear, Black order, and one row per output with a value (or a dash) each.\nconst LUMEN_LENSES = [['white', 'White'], ['frosted', 'Frosted'], ['clear', 'Clear'], ['black', 'Black']];\nconst lumenRows = t.delivered_lumens || [];\nrecord.delivered_lumens = {\n  lenses: LUMEN_LENSES.filter(([key]) => lumenRows.some(row => row[key])).map(([key, label]) => ({key, label})),\n  rows: lumenRows.map(row => ({\n    output: row.output_level,\n    values: Object.fromEntries(LUMEN_LENSES.map(([key]) => [key, row[key] || ''])),\n  })),\n};\n\n// Output Options (owner, 2026-11-18; fixture templates): the output levels are the columns and\n// each lens group has three rows, Fixture Wattage, Max Run Length and Max Footage per 100W; a dash where it does not reach.\nconst optionRows = t.output_options || [];\nconst optionLevels = [...new Set(optionRows.map(row => row.output_level))];\nconst optionGroups = [...new Set(optionRows.map(row => row.lens_group))];\nconst optionCell = (group, level, field) =>\n  (optionRows.find(row => row.lens_group === group && row.output_level === level) || {})[field] || '—';\n// Column headers are the numbers only; the page title says \"(lm/ft)\" (owner, 2026-11-19).\nrecord.output_options = {\n  columns: optionLevels.map(level => String(level).replace(/\\s*lm\\s*\\/\\s*(sq\\s*)?ft\\s*$/i, '')),\n  rows: optionGroups.flatMap(group => [\n    // LED Neon has one group with no name (owner, 2026-11-19): no \"( )\" after the label.\n    {label: `Fixture Wattage${group ? ` (${group})` : ''}`, values: optionLevels.map(level => optionCell(group, level, 'fixture_wattage'))},\n    {label: `Max Run Length${group ? ` (${group})` : ''}`, values: optionLevels.map(level => optionCell(group, level, 'max_run_length'))},\n    {label: `Max Footage per 100W${group ? ` (${group})` : ''}`, values: optionLevels.map(level => optionCell(group, level, 'max_footage_100w'))},\n  ]),\n};\n\n// LED Neon (owner, 2026-11-19): the optional title over the first dimensions drawing, and the\n// Mounting Accessories (each Mounting Accessory Map row's item code and Item Name).\nrecord.dimensions_title = String(t.dimensions_title || '').trim();\nrecord.mounting_accessories = ctx.mounting_accessories || [];\n\n// LED packages of the fixture template's tape offerings: the gradient lines (owner, 2026-11-13).\nrecord.led_packages = ctx.led_packages || [];\n\n// Still from legacy (owner, 2026-11-02).\nrecord.photometric_image = legacy.photometric_image;\nrecord.photometric_data = legacy.photometric_data;\nrecord.colorimetry = legacy.colorimetry;\n\nreturn [{json: {message: {products: [record], brand: ctx.brand, context: ctx}}}];"
+      },
+      "id": "945af4a6-d783-46d0-b58b-a73956ffdb33",
+      "name": "Get Product Info",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        480
+      ],
+      "notes": "Reshapes get_spec_sheet_data into the old get_webflow_products answer, so every node that reads Get Product Info is unchanged. legacy is the same record the export gives (built from the template when it has no Webflow Product)."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.illumenate.lighting/api/method/illumenate_lighting.illumenate_lighting.spec_sheet_data.get_spec_sheet_data",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "erpNextApi",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "template_doctype",
+              "value": "={{ $json.body.template_doctype }}"
+            },
+            {
+              "name": "template_id",
+              "value": "={{ $json.body.template_id }}"
+            },
+            {
+              "name": "brand",
+              "value": "={{ $json.body.brand }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ae79c183-9f8b-4ec7-80c1-81828643eb64",
+      "name": "Get Spec Sheet Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        176,
+        496
+      ],
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "erpNextApi": {
+          "id": "q5FbtRYh73x4yYeZ",
+          "name": "Webflow Marketing API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": true,\n  \"message\": \"Synced\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        3136,
+        1632
+      ],
+      "id": "ef73d030-7150-4c05-ac7b-4d1f424e98ab",
+      "name": "Respond to Webhook (W2)"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        400,
+        688
+      ],
+      "id": "c863f1d4-5c76-4095-932b-c525b1f9703f",
+      "name": "Respond to Webhook: Error (W1)"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, file_url: $('Upload Spec to File Manager').first().json.message.file_url }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1344,
+        944
+      ],
+      "id": "6f755179-f9e4-4552-a88c-6823f0d7f394",
+      "name": "Respond to Webhook: Success (W1)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Get the payload directly from the incoming data\nconst webhookBody = $input.first().json.body;\n\nif (!webhookBody || !webhookBody.payload) {\n    throw new Error(\"Webhook body or payload is missing. Make sure you are executing this node after the Webhook has received test data.\");\n}\n\nconst payload = webhookBody.payload;\nconst brand = payload.brand.brand_code;\n\n// 2. Webflow API tokens are NOT stored in this node.\n// They must come from n8n credentials (see CHANGES.md follow-up).\n\n// 3. Output the config for the rest of the workflow\nreturn {\n  json: {\n    ...webhookBody, // Preserves the job, token, and hashes needed for the final Respond node\n    brand: brand,\n    webflow_collection_id: payload.brand.collections.Products,\n    enriched_product: payload.product,\n    webflow_api_token: null // tokens come from n8n credentials\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        1600
+      ],
+      "id": "564f6bcc-01ac-496c-8a9f-e16037bb8ad5",
+      "name": "Set Brand Config"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "12f63a64-fd4c-4670-a274-28a7065d2f6b",
+              "leftValue": "={{ $json.isDraft }}",
+              "operator": {
+                "operation": "false",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            },
+            {
+              "id": "e55c0766-cbc8-49f0-a376-66559ae90d6c",
+              "leftValue": "={{ $json.isArchived }}",
+              "operator": {
+                "operation": "false",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          }
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2000,
+        1936
+      ],
+      "id": "e9d5b8b2-7e15-45bb-935f-28e65076e251",
+      "name": "Should Publish? (New)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "12f63a64-fd4c-4670-a274-28a7065d2f6b",
+              "leftValue": "={{ $json.isDraft }}",
+              "rightValue": "false",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "e55c0766-cbc8-49f0-a376-66559ae90d6c",
+              "leftValue": "={{ $json.isArchived }}",
+              "rightValue": "false",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2080,
+        1600
+      ],
+      "id": "eb9387de-5fa0-448e-81c5-e06e23521d9d",
+      "name": "Should Publish? (Update)"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 4
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.payload.brand.brand_code }}",
+                    "rightValue": "illumenate",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "855527d2-2616-4cd9-8971-e5c9a4da6850"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ilLumenate"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 4
+                },
+                "conditions": [
+                  {
+                    "id": "efcb3664-11f2-4ef7-9930-a66328ae7fea",
+                    "leftValue": "={{ $json.payload.brand.brand_code }}",
+                    "rightValue": "lighting_206",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "206 Lighting"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.5,
+      "position": [
+        624,
+        1600
+      ],
+      "id": "ddd51046-72eb-4f9a-b908-38b4a936b8dd",
+      "name": "Split by Brand"
+    },
+    {
+      "parameters": {
+        "content": "## Converts to interactive PDF",
+        "height": 112,
+        "width": 358,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1328,
+        592
+      ],
+      "typeVersion": 1,
+      "id": "8dbf91eb-6ba8-4f5a-bdb7-a6b67db38f98",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## Deletes old specs",
+        "height": 96,
+        "width": 342
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        224,
+        960
+      ],
+      "typeVersion": 1,
+      "id": "d1d5d91b-eb7b-435d-9e86-38f3f3ec52c6",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "## Fed by webflow_export_v2.py",
+        "height": 144,
+        "width": 358
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        128,
+        208
+      ],
+      "typeVersion": 1,
+      "id": "72f7219b-2154-4e0c-b132-538cc6b068e5",
+      "name": "Sticky Note10"
+    },
+    {
+      "parameters": {
+        "content": "## Finds existing specs in ERP",
+        "height": 112,
+        "width": 422
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1840,
+        592
+      ],
+      "typeVersion": 1,
+      "id": "64ab1fdc-fac7-40c0-abef-9f07b0941ce1",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "## Spec uploads to ERP template's Spec Sheet field",
+        "height": 128,
+        "width": 346
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        944,
+        848
+      ],
+      "typeVersion": 1,
+      "id": "fef8dc5b-55b1-40d9-bf5d-e9b3bdfc97d8",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "## Gets the appropriate spec sheet template then injects product data",
+        "height": 304,
+        "width": 390,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        864,
+        240
+      ],
+      "typeVersion": 1,
+      "id": "5862bd03-77de-4398-9641-f184ecc9946e",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "content": "## Webflow Product Collection IDs",
+        "width": 150,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        416,
+        1456
+      ],
+      "typeVersion": 1,
+      "id": "70baf6ca-6a6f-4ec1-b525-027fdd181ab2",
+      "name": "Sticky Note5"
+    },
+    {
+      "parameters": {
+        "content": "## Workflow 2: Update Webflow",
+        "height": 144,
+        "width": 182,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        192,
+        1472
+      ],
+      "typeVersion": 1,
+      "id": "1c70b647-7c4b-47c7-a095-58026b90b666",
+      "name": "Sticky Note6"
+    },
+    {
+      "parameters": {
+        "content": "## Triggers update to Webflow",
+        "width": 182
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        2000,
+        304
+      ],
+      "typeVersion": 1,
+      "id": "029fe9c3-5997-4607-bdda-0702360391e5",
+      "name": "Sticky Note7"
+    },
+    {
+      "parameters": {
+        "content": "## Converts to interactive PDF",
+        "height": 144,
+        "width": 358,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1344,
+        288
+      ],
+      "typeVersion": 1,
+      "id": "1272fd1c-7195-4d90-bda2-853d29c7df64",
+      "name": "Sticky Note8"
+    },
+    {
+      "parameters": {
+        "content": "",
+        "height": 176,
+        "width": 390,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        864,
+        592
+      ],
+      "typeVersion": 1,
+      "id": "f3477b88-3633-45a1-ab0f-48c8c10c716d",
+      "name": "Sticky Note9"
+    },
+    {
+      "parameters": {
+        "errorMessage": "={{ String(($json.error && ($json.error.message || $json.error)) || $json.message || 'ERPNext refused the spec sheet request').replace(/<[^>]+>/g, ' ') }}"
+      },
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        608,
+        688
+      ],
+      "id": "e0a227a3-b0da-4615-ad27-6e8a05f0d32a",
+      "name": "Stop and Error"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.message.brand }}",
+                    "rightValue": "illumenate",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "bfacbb94-0447-4379-a686-91d420733021"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ilLumenate"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "2aeaaa45-c4a7-43eb-a0fa-7afb9d6e882e",
+                    "leftValue": "={{ $json.message.brand }}",
+                    "rightValue": "lighting_206",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "206 Lighting "
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        592,
+        480
+      ],
+      "id": "659a9aaf-0749-4674-883d-6499cc346b5a",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://app.illumenate.lighting/api/resource/{{ $('(ilL) Format Data to Inject').item?.json?.template_doctype || $('(ilL) Format Data to Inject').item?.json?.template_doctype }}/{{ $('(ilL) Format Data to Inject').item?.json?.template_name || $('(ilL) Format Data to Inject').item?.json?.template_name }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "erpNextApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"spec_sheet\": \"{{ $('Upload Spec to File Manager').first().json.message.file_url }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1152,
+        944
+      ],
+      "id": "0dcf80b0-a2ec-40b4-a8ca-8755cd44e76e",
+      "name": "Update Template Spec Sheet",
+      "credentials": {
+        "erpNextApi": {
+          "id": "q5FbtRYh73x4yYeZ",
+          "name": "Webflow Marketing API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.illumenate.lighting/api/method/illumenate_lighting.illumenate_lighting.api.webflow_export_v2.upload_spec_pdf",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "erpNextApi",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "is_private",
+              "value": "0"
+            },
+            {
+              "name": "folder",
+              "value": "Home"
+            },
+            {
+              "name": "file_name",
+              "value": "={{ $('(ilL) Convert base64 string').first()?.binary?.data?.fileName || $('(ilL) Convert base64 string').first()?.binary?.data?.fileName }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        960,
+        944
+      ],
+      "id": "84376131-34b6-471a-a133-84ece2e0c98d",
+      "name": "Upload Spec to File Manager",
+      "credentials": {
+        "erpNextApi": {
+          "id": "q5FbtRYh73x4yYeZ",
+          "name": "Webflow Marketing API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ill-generate-spec-sheet",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        -32,
+        496
+      ],
+      "id": "7f9b53d8-c85c-45df-8388-a5bd3bb64372",
+      "name": "Webhook",
+      "webhookId": "dbb10754-d43f-538d-b52e-55f4a3152bd3"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ill-product-sync",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        224,
+        1600
+      ],
+      "id": "c3196015-3b76-4029-8c2b-70fb36924bfe",
+      "name": "Webhook (ilL-Publish-Job)",
+      "webhookId": "865c3555-02cf-5351-b0aa-ba8ea66185ac"
+    }
+  ],
+  "connections": {
+    "(New) Respond to ilL-Publication-Job": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook (W2)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "(Update) Respond to ilL-Publication-Job": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook (W2)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "(ilL) Convert base64 string": {
+      "main": [
+        [
+          {
+            "node": "Upload Spec to File Manager",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "(ilL) Fetch Webflow Template": {
+      "main": [
+        [
+          {
+            "node": "(ilL) Format Data to Inject",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "(ilL) Format Data to Inject": {
+      "main": [
+        [
+          {
+            "node": "(ilL) Vercel HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "(ilL) Publish Webflow Item (New)": {
+      "main": [
+        [
+          {
+            "node": "(New) Respond to ilL-Publication-Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "(ilL) Publish Webflow Item (Update)": {
+      "main": [
+        [
+          {
+            "node": "(Update) Respond to ilL-Publication-Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "(ilL) Transform to Webflow Format": {
+      "main": [
+        [
+          {
+            "node": "Exists in Webflow?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "(ilL) Vercel HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "(ilL) Convert base64 string",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "(ilL) Webflow: Create Product": {
+      "main": [
+        [
+          {
+            "node": "Should Publish? (New)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "(ilL) Webflow: Update Product": {
+      "main": [
+        [
+          {
+            "node": "Should Publish? (Update)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Brand: New Product": {
+      "main": [
+        [
+          {
+            "node": "(ilL) Webflow: Create Product",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Brand not enabled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Brand: Publish (New)": {
+      "main": [
+        [
+          {
+            "node": "(ilL) Publish Webflow Item (New)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Brand not enabled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Brand: Publish (Update)": {
+      "main": [
+        [
+          {
+            "node": "(ilL) Publish Webflow Item (Update)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Brand not enabled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Brand: Update Product": {
+      "main": [
+        [
+          {
+            "node": "(ilL) Webflow: Update Product",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Brand not enabled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exists in Webflow?": {
+      "main": [
+        [
+          {
+            "node": "Brand: Update Product",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Brand: New Product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Product Info": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Spec Sheet Data": {
+      "main": [
+        [
+          {
+            "node": "Get Product Info",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook: Error (W1)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook: Error (W1)": {
+      "main": [
+        [
+          {
+            "node": "Stop and Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Brand Config": {
+      "main": [
+        [
+          {
+            "node": "Split by Brand",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Publish? (New)": {
+      "main": [
+        [
+          {
+            "node": "Brand: Publish (New)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "(New) Respond to ilL-Publication-Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Publish? (Update)": {
+      "main": [
+        [
+          {
+            "node": "Brand: Publish (Update)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "(Update) Respond to ilL-Publication-Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split by Brand": {
+      "main": [
+        [
+          {
+            "node": "(ilL) Transform to Webflow Format",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Brand not enabled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "(ilL) Fetch Webflow Template",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Brand not enabled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Template Spec Sheet": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook: Success (W1)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Spec to File Manager": {
+      "main": [
+        [
+          {
+            "node": "Update Template Spec Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get Spec Sheet Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook (ilL-Publish-Job)": {
+      "main": [
+        [
+          {
+            "node": "Set Brand Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "saveDataSuccessExecution": "none",
+    "saveManualExecutions": false
+  },
+  "active": false
+}
