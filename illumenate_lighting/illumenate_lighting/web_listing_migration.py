@@ -30,6 +30,7 @@ from illumenate_lighting.illumenate_lighting.web_listing_schema import (
 	TEMPLATE_DOCTYPES,
 	WEBFLOW_PRODUCT_LINKS,
 	added_fieldnames,
+	template_doctypes_arg,
 )
 
 PRODUCT = "ilL-Webflow-Product"
@@ -316,3 +317,117 @@ def parity_differences(listing, template, doctype):
 		elif not _same(listing.get(field), template.get(field)):
 			differences.append(field)
 	return differences
+
+
+# --- Listing fields the spec sheet reads from the template (production, 2026-11-24) ---------
+#
+# Production's catalog data sits on the Webflow Product; the spec sheet and the sync read the
+# template (docs/superpowers/specs/2026-11-24-production-fixture-readiness-design.md). These
+# fill EMPTY template fields from the linked product, never overwrite, and report differences.
+# Brand, category and series are seeded by template_link_report.link_consistency_report.
+
+# template field: product field
+CARRY_SCALARS = {
+	"sublabel": "sublabel",
+	"dimensions_image": "dimensions_image",
+	"hero_image": "featured_image",
+}
+# Owner, 2026-11-24: the featured image is a starting point; the report asks staff to check it.
+CARRY_REVIEW = {"hero_image": "hero_image is the product's featured image: check it"}
+CERTIFICATION_ROW = "ilL-Child-Spec-Certification"
+
+
+def plan_carry(listing, template, fields):
+	"""Pure: what to copy from a Webflow Product onto its template.
+
+	``fields`` is the set of fieldnames the template type has. Returns
+	``(values, tables, notes, review)``: scalars to set, child tables to fill, differences left
+	alone, and copies staff should check.
+	"""
+	values, tables, notes, review = {}, {}, [], []
+	for field, source in CARRY_SCALARS.items():
+		value = listing.get(source)
+		if field not in fields or _empty(value):
+			continue
+		current = template.get(field)
+		if _empty(current):
+			values[field] = value
+			if field in CARRY_REVIEW:
+				review.append(CARRY_REVIEW[field])
+		elif field not in CARRY_REVIEW and not _same(value, current):
+			# A hero image other than the featured image is the point of having one.
+			notes.append(f"{field} kept as {current!r}; product has {value!r}")
+	certifications = [row for row in listing.get("certifications") or [] if row.get("certification")]
+	if "certifications" in fields and certifications:
+		if template.get("certifications"):
+			notes.append(f"certifications kept: template already has {len(template['certifications'])} rows")
+		else:
+			ordered = sorted(certifications, key=lambda row: row.get("display_order") or 0)
+			tables["certifications"] = [{"certification": row["certification"]} for row in ordered]
+	return values, tables, notes, review
+
+
+def _carry_write(doctype, name, values, tables):
+	if values:
+		frappe.db.set_value(doctype, name, values, update_modified=False)
+	for idx, row in enumerate(tables.get("certifications") or [], 1):
+		frappe.get_doc(
+			{
+				"doctype": CERTIFICATION_ROW,
+				"parent": name,
+				"parenttype": doctype,
+				"parentfield": "certifications",
+				"idx": idx,
+				**row,
+			}
+		).db_insert()
+
+
+@frappe.whitelist(methods=["POST"])
+def carry_listing_fields(dry_run=1, doctypes=None):
+	"""Fill empty template fields (sublabel, images, certifications) from the linked product.
+
+	Dry run by default. ``doctypes`` defaults to the site's webflow_sync_scope (fixtures on
+	production first). Only templates whose Webflow Product links back to them are touched.
+	"""
+	dry_run = int(dry_run)
+	frappe.only_for("System Manager")
+	report, not_linked = [], []
+	for doctype in template_doctypes_arg(doctypes):
+		meta = frappe.get_meta(doctype)
+		fields = {field for field in (*CARRY_SCALARS, "certifications") if meta.has_field(field)}
+		link_field = WEBFLOW_PRODUCT_LINKS[doctype]
+		for name in frappe.get_all(doctype, pluck="name", order_by="name asc"):
+			template = frappe.get_doc(doctype, name).as_dict()
+			key = f"{doctype} {name}"
+			product = template.get("webflow_product")
+			if not product or not frappe.db.exists(PRODUCT, product):
+				not_linked.append(key)
+				continue
+			listing = frappe.get_doc(PRODUCT, product).as_dict()
+			row = {"template": key, "listing": product}
+			if listing.get(link_field) != name:
+				report.append(
+					{**row, "action": "skipped", "notes": [f"{product} links {listing.get(link_field)!r}"]}
+				)
+				continue
+			values, tables, notes, review = plan_carry(listing, template, fields)
+			if not values and not tables:
+				report.append({**row, "action": "nothing to carry", "notes": notes, "review": review})
+				continue
+			if not dry_run:
+				frappe.db.savepoint("carry_listing_fields")
+				_carry_write(doctype, name, values, tables)
+			report.append(
+				{
+					**row,
+					"action": "would carry" if dry_run else "carried",
+					"fields": sorted(values),
+					"tables": {field: len(rows) for field, rows in tables.items()},
+					"notes": notes,
+					"review": review,
+				}
+			)
+	if not dry_run:
+		frappe.db.commit()
+	return {"templates": report, "not_linked": not_linked}
