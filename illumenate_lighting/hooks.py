@@ -104,6 +104,11 @@ for _name in ("Purchase Order", "Request for Quotation", "Material Request", "Wo
     _scripts = doctype_js.get(_name, [])
     _scripts = [_scripts] if isinstance(_scripts, str) else _scripts
     doctype_js[_name] = [*_scripts, "public/js/configured_build_docs.js"]
+# "Supplier Parts" button on more documents; it edits the Items only (api/supplier_parts.py).
+for _name in ("Material Request", "Quotation", "Sales Order", "Supplier Quotation", "Purchase Receipt", "Purchase Invoice"):
+    _scripts = doctype_js.get(_name, [])
+    _scripts = [_scripts] if isinstance(_scripts, str) else _scripts
+    doctype_js[_name] = [*_scripts, "public/js/supplier_parts.js"]
 # Label queue buttons (labels plan Phase 1): Print / Regenerate / Preview on the Work Order,
 # Labels and Generate labels on the Sales Order. Hidden while labels are off.
 for _name, _script in (("Work Order", "public/js/work_order_labels.js"), ("Sales Order", "public/js/sales_order_labels.js")):
