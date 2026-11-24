@@ -337,6 +337,15 @@ Fix any fixture-only gaps (for example, `HIGHLIGHT_RULES` covers Extrusion Kit o
 
 ### B6. Data dry runs, scoped to fixtures (Claude may run every dry run and summarise)
 
+**Updated 2026-11-24.** Production's catalog data sits on the Webflow Product, and the spec sheet and sync read the template. Nothing is copied from staging (owner). Follow `docs/superpowers/specs/2026-11-24-production-fixture-readiness-design.md`, section 3:
+1. `link_consistency_report`, then link by hand what it cannot match.
+2. `web_listing_migration.carry_listing_fields` (dry run, then `dry_run=0`). This copies sublabel, dimensions image, certifications and hero image; the hero image comes from the product's featured image and must be checked.
+3. Fill in by hand what the **Fixture Readiness** report lists.
+4. `refresh_all_templates`.
+5. Repeat until every website fixture shows Ready in Fixture Readiness.
+
+The steps below still apply, in that order.
+
 1. Compare Custom Fields with the staging export (§10.4 S5); `custom_spec_custom` has never been checked on production.
 2. `link_consistency_report(doctypes=["ilL-Fixture-Template"])`. Today only 36 templates are linked, against 71 products. Review `suggested_links`, then `apply` with `link_suggestions`.
 3. `refresh_all_templates(doctypes=…)` as a dry run, then `apply=True, push=False`. The push is deferred to B8.
