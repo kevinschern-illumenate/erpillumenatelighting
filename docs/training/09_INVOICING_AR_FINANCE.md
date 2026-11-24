@@ -514,7 +514,7 @@ What you see (captured):
 - **New customers to set up:** Customers created from a Frappe CRM deal that still have no payment terms. Set the terms (and the Customer Group tier) before the first invoice. Search by customer name.
 - **Bills not in QuickBooks:** submitted purchase invoices with no QuickBooks id (Module 08).
 - Both belong to the **bookkeeping** capability: Accounts Manager or Accounts User (decided 22 Nov).
-- **Gap to check:** the Portal Operations page itself only opens for System Manager, ilL Sales Review, ilL Order Approver, ilL Engineering, ilL Support, ilL Operations and ilL Integration (staging, 24 Nov). An Accounts-only user is refused at the page before the queues load. Until one of those roles (or the Accounts roles) is added to the page, open the queues as training.lead, or use the desk lists directly: `/app/customer?payment_terms=%5B%22is%22%2C%22not%20set%22%5D` and `/app/purchase-invoice?docstatus=1&custom_qbo_id=%5B%22is%22%2C%22not%20set%22%5D`.
+- **Who can open the page:** the page now also opens for Accounts Manager, Accounts User and ilL Catalog Publisher, so every role that owns a queue can reach it (fixed 24 Nov; live on staging after the next deploy). Until then, open the queues as training.lead, or use the desk lists directly: `/app/customer?payment_terms=%5B%22is%22%2C%22not%20set%22%5D` and `/app/purchase-invoice?docstatus=1&custom_qbo_id=%5B%22is%22%2C%22not%20set%22%5D`.
 
 On staging (24 Nov 2026) the page still shows the older single section "Accounts & Finance" (Account review, New customers to set up: 30) because the 22 Nov change isn't deployed there yet; see SS-10-01 in Module 10. After the next deploy it splits into "Dealer Accounts" and "Accounting". Bills not in QuickBooks only appears once the QuickBooks bill settings are filled in.
 
@@ -662,7 +662,7 @@ From staging permissions (24 Nov 2026) and the app's role checks.
 | Dealer paid but ERPNext still shows Overdue | Payment not recorded in QuickBooks, or the sync failed | Check QuickBooks, then the sync log (Lesson 9.3 table) |
 | A Payment Entry is Cancelled with no one touching it | QuickBooks edited or voided the payment | Read QBO Sync Note; look for the replacement entry |
 | The proforma order is still "Proforma - Awaiting Payment" | Not paid in full, or the stage sweep hasn't run | Check outstanding; wait 15 minutes |
-| Portal Operations says "No portal operations role is assigned to this account…" or the page is refused | Accounts-only user; the page needs an ilL role | See the gap in Lesson 9.4 |
+| Portal Operations says "No portal operations role is assigned to this account…" or the page is refused | Accounts-only user on a site without the 24 Nov fix | Deploy the fix (Lesson 9.4); meanwhile use the desk lists |
 | A queue tile shows "—" and "You need read access to this document type." | Capability yes, DocType read no | Ask for read on that DocType |
 | Commission report shows "Nothing to show" | No sales person on the invoices' Sales Team, or nothing paid last month | Set Payment Status to All; check the SO's Sales Team |
 | "Select at least one ticket." | Link Helpdesk Tickets with nothing ticked | Tick a ticket |

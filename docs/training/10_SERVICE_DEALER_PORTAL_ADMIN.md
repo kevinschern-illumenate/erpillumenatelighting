@@ -8,7 +8,7 @@
 Trainees can work the Portal Operations queues, onboard a new dealer, process account requests, handle portal support issues and after-sale service, and understand what dealers and their collaborators can and can't see. Administrators can check who holds which capability and fix a dealer the portal can't place.
 
 > **Status, checked on staging 24 Nov 2026:**
-> - Portal Operations on staging still runs the build from before 22 Nov: one **"Accounts & Finance"** section holds Account review and New customers to set up. The repo splits it into **Dealer Accounts** and **Accounting** (decision 8). Capture again after the next deploy.
+> - Portal Operations on staging shows the **Dealer Accounts** and **Accounting** sections (decision 8; checked by the lead on 24 Nov). SS-10-01 was captured before that and shows the old single "Accounts & Finance" section, so capture it again.
 > - No portal support Issues exist on staging yet, so the Support responses queue is empty.
 > - The Helpdesk knowledge base has one draft article ("Introduction"); decision 3 proposes the 10 starter articles.
 > - No portal invitations exist yet. Five account requests exist, all Approved.
@@ -121,7 +121,7 @@ flowchart TD
 
 - **Views:** Everything; **Assigned to me** and **Unassigned** when the queue has an owner; **Overdue** when it has a due date. Account review has no due date, so it has no Overdue view.
 - **Overdue digest:** once a day the app sends each owner one Desk bell notification, "Overdue portal work on <date>", listing their overdue items (unowned items go to the whole team). It covers quotes, orders, order changes, verification, drawings and support. It is a bell, not an email; whether it also emails depends on each person's notification settings.
-- **Who can open the page:** the Page allows System Manager, ilL Sales Review, ilL Order Approver, ilL Engineering, ilL Support, ilL Operations and ilL Integration (staging, 24 Nov). An Accounts-only user is refused at the page (see Module 09, Lesson 9.4).
+- **Who can open the page:** System Manager, ilL Sales Review, ilL Order Approver, ilL Engineering, ilL Support, ilL Operations, ilL Integration, ilL Catalog Publisher, Accounts Manager and Accounts User: every role that owns a queue (the last three added 24 Nov; on staging after the next deploy). A test keeps the page roles and the queue roles in step.
 - **Routing settings** (`ilL-Portal-Routing-Settings`): per queue (quotes, orders, order_changes, accounts, support) a **Default Assignee**, a **Fallback Role** and **SLA Hours** (sets the due date; 0 = none). "Also Email the Shared Inbox" and "Shared Inbox Email". Staging has no routes yet.
 - The workspace "Needs Attention" cards show the same signals.
 
@@ -506,7 +506,7 @@ What you see (captured):
 - Checklist after a staffing change:
   1. Every capability has at least one holder (the decision 8 mapping).
   2. No dealer is unresolved; fix Contact links on the Customer.
-  3. Accounts-only staff can open Portal Operations (today they can't; see Lesson 10.1).
+  3. Accounts-only staff can open Portal Operations (fixed 24 Nov; confirm after the deploy).
   4. The Dealer role has no rights beyond the app's matrix (today it has Sales Invoice rights on staging).
   5. Command Center Finance only for those who should see figures (decision 9).
 
