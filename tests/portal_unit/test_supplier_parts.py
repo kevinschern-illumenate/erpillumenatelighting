@@ -80,7 +80,52 @@ class ReadParts(unittest.TestCase):
 			self.assertEqual(frappe.has_permission.call_args.args, ("Request for Quotation", "read"))
 			self.assertNotIn(DESC, frappe.get_all.call_args.kwargs["fields"])
 			with self.assertRaises(ValueError):
-				sp.get_supplier_part_info("ACME", ["A"], doctype="Sales Order")
+				sp.get_supplier_part_info("ACME", ["A"], doctype="Journal Entry")
+
+	def test_item_only_documents_read_with_their_own_permission(self):
+		with load_service(SERVICE) as (sp, frappe):
+			frappe.get_meta.return_value.has_field.return_value = True
+			frappe.get_all.return_value = []
+			frappe.db.get_value.return_value = "Acme Corp"
+			for doctype in sp.ITEM_ONLY_DOCTYPES:
+				result = sp.get_supplier_part_info("ACME", ["A"], doctype=doctype)
+				self.assertEqual(frappe.has_permission.call_args.args, (doctype, "read"))
+			self.assertEqual(result["supplier_name"], "Acme Corp")
+
+
+class ItemSuppliers(unittest.TestCase):
+	def test_suppliers_on_the_items_most_items_first(self):
+		with load_service(SERVICE) as (sp, frappe):
+
+			def get_all(doctype, filters=None, fields=None, order_by=None):
+				if doctype == "Item Supplier":
+					return [
+						Record(parent="A", supplier="ONE"),
+						Record(parent="A", supplier="TWO"),
+						Record(parent="B", supplier="TWO"),
+					]
+				if doctype == "Item Default":
+					return [Record(parent="C", supplier="TWO"), Record(parent="A", supplier="ONE")]
+				return [Record(name="TWO", supplier_name="Two Inc")]
+
+			frappe.get_all.side_effect = get_all
+			result = sp.get_item_suppliers(json.dumps(["A", "B", "C", "A", ""]), doctype="Sales Order")
+			self.assertEqual(frappe.has_permission.call_args.args, ("Sales Order", "read"))
+		self.assertEqual(
+			result,
+			[
+				{"supplier": "TWO", "supplier_name": "Two Inc", "items": 3},
+				{"supplier": "ONE", "supplier_name": "ONE", "items": 1},
+			],
+		)
+
+	def test_no_items_or_no_suppliers(self):
+		with load_service(SERVICE) as (sp, frappe):
+			self.assertEqual(sp.get_item_suppliers([], doctype="Quotation"), [])
+			frappe.get_all.return_value = []
+			self.assertEqual(sp.get_item_suppliers(["A"], doctype="Material Request"), [])
+			with self.assertRaises(ValueError):
+				sp.get_item_suppliers(["A"], doctype="Journal Entry")
 
 	def test_supplier_is_required(self):
 		with load_service(SERVICE) as (sp, _):
@@ -161,6 +206,22 @@ class DialogSave(unittest.TestCase):
 			self.assertEqual(frappe.has_permission.call_args_list[0].args, ("Request for Quotation", "write"))
 			frappe.db.set_value.assert_not_called()
 		self.assertEqual(result["lines"], [])
+
+	def test_item_only_documents_need_read_permission_and_never_touch_lines(self):
+		items = {"A": Item("A")}
+		with load_service(SERVICE) as (sp, frappe):
+			setup(frappe, items)
+			result = sp.update_supplier_part_info(
+				"ACME",
+				[{"item_code": "A", "supplier_part_no": "1"}],
+				doctype="Sales Order",
+				name="SO-1",
+			)
+			checks = [c.args for c in frappe.has_permission.call_args_list]
+			self.assertEqual(checks[:2], [("Sales Order", "read"), ("Item", "write")])
+			frappe.db.set_value.assert_not_called()
+		self.assertEqual(result, {"updated": ["A"], "unchanged": [], "lines": []})
+		self.assertEqual(items["A"].supplier_items, [{"supplier": "ACME", "supplier_part_no": "1", DESC: ""}])
 
 	def test_submitted_po_lines_are_corrected_and_noted(self):
 		order = Record(
@@ -365,7 +426,15 @@ class Wiring(unittest.TestCase):
 			self.assertIn(f'"{doctype}": "public/js/supplier_parts.js"', hooks)
 		self.assertEqual(hooks.count("supplier_parts.fill_line_supplier_parts"), 2)
 		self.assertEqual(hooks.count("supplier_parts.save_line_supplier_parts"), 2)
-		self.assertTrue((REPO / "illumenate_lighting" / "public" / "js" / "supplier_parts.js").exists())
+		script = (REPO / "illumenate_lighting" / "public" / "js" / "supplier_parts.js").read_text()
+		with load_service(SERVICE) as (sp, _):
+			item_only = sp.ITEM_ONLY_DOCTYPES
+		# The script, the hooks and the API list the same documents.
+		with load_service("illumenate_lighting.hooks") as (hooks_module, _):
+			doctype_js = hooks_module.doctype_js
+		for doctype in item_only:
+			self.assertIn(f"'{doctype}'", script)
+			self.assertIn("public/js/supplier_parts.js", doctype_js[doctype])
 		patches = (REPO / "illumenate_lighting" / "patches.txt").read_text().split("[post_model_sync]", 1)[1]
 		self.assertIn("illumenate_lighting.patches.add_supplier_part_line_fields", patches.splitlines())
 		install = (REPO / "illumenate_lighting" / "illumenate_lighting" / "install.py").read_text()
