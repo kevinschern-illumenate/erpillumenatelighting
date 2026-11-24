@@ -599,7 +599,7 @@ What you see (captured):
 ## Exercises (staging)
 
 1. **Queues.** Open Portal Operations as training.lead. Expected: Sales, Accounts & Finance (or Dealer Accounts and Accounting after the deploy), Engineering, Operations, Support, Sales Inbox; New customers to set up = 30.
-2. **Role difference.** Open it as training.support. Expected: only Account review, Support responses and Sales inbox.
+2. **Role difference.** Open it as training.support. Expected: Account review, Support responses and Sales inbox (the pre-22 Nov build on staging may also show New customers to set up).
 3. **Locked out.** Open it as training.viewer. Expected: refused.
 4. **Read a request.** Open `dtks3ikn2b`. Expected: Dealer application, Approved, the form fields in Proposed Json.
 5. **Service stage.** Open `#service`. Expected: Done lane cards with Details, + To-do, ↗.

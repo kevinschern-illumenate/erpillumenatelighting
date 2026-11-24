@@ -931,12 +931,12 @@ Then email nothing by hand for portal dealers: the new offer emails "Quote ready
 
 Real staging records (DATA-03-02). Use them to walk the path; redact names before publishing.
 
-1. The dealer's schedule ILL-SCHED-2026-00140 (project ILL-PROJ-2026-00115) is READY with tape/neon lines in "Linear Theater".
-2. On 27 Oct 2026 a quote request **QR-00181** is raised. Routing assigns it (Assigned To filled; no Due Date, because staging has no SLA row).
+1. Schedule ILL-SCHED-2026-00140 ("Cove Linear Fixtures", project ILL-PROJ-2026-00115) holds tape/neon lines in "Linear Theater". It was created by a staff account (kevins@), not by the dealer.
+2. On 27 Oct 2026 quote request **QR-00181** is raised, Requested By kevins@. Routing assigns it (Assigned To filled; no Due Date, because staging has no SLA row).
 3. Sales clicks **Prepare Quotation**: draft **ilL-SAL-QTN-Bain Custom Integrations-00003** with 39 rows (profiles, lenses, endcaps, clips, tape), Fixture Schedule and Portal Quote Request filled, Section / Room "Linear Theater…", Fixture Type L1-1-A.
 4. The customer is in **Bronze**, so each row is MSRP less 40%. Grand total $1,603.58.
-5. Valid Till 27 Nov 2026 (one month). Submit → **OFFER-00182** ISSUED; request ISSUED; schedule QUOTED; the schedule owner is emailed "Quote ready: Cove Linear Fixtures".
-6. On 24 Nov the offer enters **Offers expiring soon**; the buyer gets "expires in 3 days", then "expires tomorrow" on 26 Nov.
+5. Valid Till 27 Nov 2026 (one month). Submit → **OFFER-00182** ISSUED; request ISSUED; schedule QUOTED. "Quote ready" goes to the schedule's owner, which here is staff, so no dealer was emailed. Lesson: for a real dealer, the schedule should be the dealer's own, or the dealer must be told.
+6. From 24 Nov the offer is in **Offers expiring soon**; the expiry reminders (24 and 26 Nov) go to the requester and the schedule owner, again staff here.
 7. What actually happened on staging: the Sales Order was made from the Quotation in the desk. The quote is **Won**/Ordered and the schedule ORDERED, but OFFER-00182 is still ISSUED. In class, ask: what should have happened instead? (The dealer accepts online; the draft SO and order request then go to Module 04.)
 
 ---
