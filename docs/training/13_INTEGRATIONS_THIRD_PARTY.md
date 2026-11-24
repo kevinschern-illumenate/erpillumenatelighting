@@ -84,7 +84,9 @@ In words:
 **Objective:** know the four moving parts of every integration: a trigger, a webhook, a service user, a log.
 
 - ERPNext sends events to **n8n**; n8n talks to QuickBooks, EasyPost, Webflow and the spec sheet renderer, then writes results back to ERPNext.
-- Each outside system writes into ERPNext as its own **service user**, so changes on the timeline are labelled by source:
+- Each outside system writes into ERPNext as its own **service user**, so changes on the timeline are labelled by source (table below). All five are enabled on staging. A site can point a key at another user with site config `ill_service_users`.
+- **No secrets in the repo.** Webhook URLs and shared secrets live in settings DocTypes (password fields) or site config: `n8n_spec_webhook_url`, `n8n_sync_webhook_url`, `n8n_sync_secret`, `n8n_sync_secret_header`, `webflow_environment` (staging or production), `qbo_webhook_secret`, `shipping_webhook_secret`, `webflow_auto_push`, `webflow_notify_users`, `spec_sheet_template_sites`. A missing URL stops the call ("The n8n webhook URL is not configured. Ask your administrator to set {0} in site config.") rather than fall back to production.
+- If something "didn't sync", the answer is usually in a log: **Error Log**, **ilL-QBO-Sync-Log**, **Publish Jobs**, **Portal Deliveries** (email), or the **n8n execution list**.
 
 | Service user (email) | Roles | Writes |
 |---|---|---|
@@ -93,10 +95,6 @@ In words:
 | `qbo-integration@illumenate.lighting` | ilL Integration, Accounts User | Payment Entries and QuickBooks ids |
 | `shipping-integration@illumenate.lighting` | ilL Integration | Shipment tracking status |
 | `webflow-marketing-api@illumenate.lighting` | (API user seen on staging publish jobs; confirm its roles) | Requests from the older marketing sync |
-
-  All five are enabled on staging. A site can point a key at another user with site config `ill_service_users`.
-- **No secrets in the repo.** Webhook URLs and shared secrets live in settings DocTypes (password fields) or site config: `n8n_spec_webhook_url`, `n8n_sync_webhook_url`, `n8n_sync_secret`, `n8n_sync_secret_header`, `webflow_environment` (staging or production), `qbo_webhook_secret`, `shipping_webhook_secret`, `webflow_auto_push`, `webflow_notify_users`, `spec_sheet_template_sites`. A missing URL stops the call ("The n8n webhook URL is not configured. Ask your administrator to set {0} in site config.") rather than fall back to production.
-- If something "didn't sync", the answer is usually in a log: **Error Log**, **ilL-QBO-Sync-Log**, **Publish Jobs**, **Portal Deliveries** (email), or the **n8n execution list**.
 
 **SS-13-01** · n8n workflow list showing the ilL workflows
 **URL:** n8n editor · **Role:** n8n admin
@@ -148,6 +146,7 @@ In words:
 | [STAGING] Webflow ID remap | No (one-off, manual) | Manual | `remap_webflow_ids` dry run | — |
 
 **Health routine (weekly, admin):**
+
 1. n8n → Executions, filter Status = Error, last 7 days. Open each failed run; the red node shows the error.
 2. ERPNext Error Log: filter titles starting "QBO", "Could not tell n8n", "Kevin's Desk".
 3. Publish jobs FAILED (Module 11), QBO Sync Log Failed (13.4), Portal Operations → Publication failures and Email failures.
