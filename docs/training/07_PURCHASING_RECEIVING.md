@@ -253,6 +253,8 @@ Card: "MR 00007" link, "Needed &lt;date&gt;" (red when past and not yet ordered)
 - **Order directly** opens: *Creates a draft Purchase Order from &lt;MR&gt; without quotes.* Field **Supplier**; button **Create draft**. Use it when you already know the vendor and price.
 - Leaving the supplier blank shows "Pick a supplier."
 
+The same requests also show in **Portal Operations → Operations → Materials to order** (`/app/ill-portal-operations`, ilL Operations role): submitted Purchase material requests that are Pending or Partially Ordered (*Purchase material requests that are not fully ordered.*).
+
 **Material Request (desk) fields that matter**
 
 | Field (as shown) | Meaning | Who fills | Required | Flows to |
@@ -341,6 +343,10 @@ Card: an "RFQ" or "Quote" badge, the document link, supplier chips ("&lt;supplie
 > **SS-07-42** · Quote card in Expiring soon with "Valid Nd more"
 > **URL:** `/command-center#purch` → Vendor quotes · **Role:** `training.lead` · **State:** a submitted quotation valid for 7 days or fewer
 > **Highlight:** the amber badge; Accept → draft PO
+
+> **SS-07-63** · Portal Operations → Operations → "Materials to order" queue
+> **URL:** `/app/ill-portal-operations` · **Role:** `training.lead` (has ilL Operations) · **State:** MAT-MR-2026-00006 and -00007 Pending
+> **Highlight:** the queue name and its help line; the per-ordered column
 
 **DATA-07-03** · Open purchase material requests and their lane inputs
 **API:** `GET /api/resource/Material Request?filters=[["material_request_type","=","Purchase"],["docstatus","<",2]]&fields=["name","status","docstatus","schedule_date","transaction_date"]&limit_page_length=20`

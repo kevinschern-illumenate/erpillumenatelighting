@@ -222,6 +222,7 @@ Roles as deployed on staging (24 Nov 2026). Ryan holds Stock Manager, so he can 
 - Optional **Packing Slip** per case (print **ilL Packing List**): delivery note, ship date, case number (or "Cases 1 to 3"), carrier, tracking number, ship-to, net and gross weight, and lines grouped by section with a **Checked** tick box. Configured lines show fixture type, CCT, output, length, watts, finish and segments.
 
 **Packing tips**
+
 - Pack by section or room: the packing slip and the ilL Delivery Note both group lines that way, so the installer unpacks room by room.
 - Weigh each box as you close it and write the weight and dimensions on the pick list. You need them in Lesson 6.4 (or on the carrier site today).
 - Put the ilL Delivery Note (the in-box packing slip) in box 1.
@@ -322,6 +323,7 @@ On staging the On-Time Review section renders at the bottom of the **Connections
 **Objective:** buy, print and void labels from ERPNext.
 
 **Create the Shipment**
+
 - On a **saved** delivery note (draft or submitted, not a return, not cancelled), click **Create Shipment**. If the form has unsaved changes: "Save the Delivery Note first." If a Shipment already lists the note, it opens that one ("Opening SHIPMENT-#####, which already lists this note.").
 - The new Shipment opens **unsaved**, pre-filled:
 
@@ -340,6 +342,7 @@ On staging the On-Time Review section renders at the bottom of the **Connections
 - The blue intro reads: "Dimensions are in inches and weight in pounds. A row with Count above 1 becomes one row per box when you save, so each box gets its own label. Submit, then Create Labels."
 
 **Add boxes**
+
 - **Add Template** picks a standard box (Shipment Parcel Template), or type dimensions. Units are **inches and pounds**.
 - A row with Count 3 becomes three rows on save, so each box gets its own tracking number.
 - Every save re-checks each box against the surcharge thresholds and ticks **Special Handling** on boxes that will carry a surcharge.
@@ -358,6 +361,7 @@ On staging the On-Time Review section renders at the bottom of the **Connections
 | Any side or weight 0 or blank | | **Refused** |
 
 **Buy labels**
+
 - **Create Labels** (blue, only on a submitted Shipment with Label Status not Bought, and only for users with Submit on Shipment). It shows "Getting the rate from EasyPost..." while it verifies the address and gets one rate: FedEx Ground (business) or Ground Home Delivery (residential), on our FedEx account. It is one automatic choice, not a comparison across carriers. Nothing is bought yet.
 - The confirm dialog, "Buy FedEx labels for SHIPMENT-#####?", lists **Service**, **Rate**, **Boxes**, **Transit** ("n business days"), **Address** (Verified, "· residential", or red "Not verified"), any "Surcharges likely" box and EasyPost's address notes. Click **Buy Labels ($xx.xx)**.
 - "Buying labels..." then a green alert "Labels bought. Tracking <number>", and the merged label PDF opens in a new tab.
@@ -365,6 +369,7 @@ On staging the On-Time Review section renders at the bottom of the **Connections
 - **Print Labels** opens the merged PDF. Print it at 4×6 (decision 7).
 
 **Void**
+
 - **Void Label** asks "Void the labels on SHIPMENT-##### and ask EasyPost for a refund? The tracking numbers will be removed from the Delivery Note." It refunds every box, clears the numbers from the Shipment and the delivery note, sets Status back to Submitted and Label Status **Voided**, and comments "Labels voided. Refund requested for …". You can buy again.
 - A Shipment with bought labels **can't be cancelled** until voided: "Void the label before cancelling this Shipment."
 
@@ -468,15 +473,18 @@ On staging the On-Time Review section renders at the bottom of the **Connections
 ### Lesson 6.5: Manual labels, freight, will call, proforma and drop ship
 
 **Manual label (the live process today, and the fallback if EasyPost is down)**
+
 1. Buy the label on the carrier's site (FedEx today).
 2. On the delivery note, More Info tab, set **Carrier** and type the **Tracking Number**. Several boxes: type the master number; mention the others in the delivery note's comments.
 3. Save, then submit. The dealer's email and portal show the number as a link for UPS, FedEx and USPS.
 - Labels bought outside ERPNext get **no automatic tracking updates**: there's no Shipment for EasyPost to update.
 
 **Freight / LTL**
+
 - No label integration. Set Carrier **Freight** or **Other** and type the PRO / BOL number. It shows as plain text (no link). All freight is billed to our account; collect freight isn't supported.
 
 **Will call (customer pickup)**
+
 1. Set **Proforma / Will Call = Will Call** on the SO (editable after submit; also in the Command Center order sheet).
 2. When the order is built, its stage becomes **Will Call - Ready** (Waiting on: Customer).
 3. Send the manual template **"ilL - Sales Order - Ready for pickup"** from the SO (Email, pick the template). Subject "Ready for pickup: order <SO> (PO …)". It prints the pickup address and pickup hours from ilL-Email-Settings → Will Call Pickup, asks for "the day you'll come and the name of the person picking up", shows any payment due, and lists the lines without prices.
@@ -485,12 +493,15 @@ On staging the On-Time Review section renders at the bottom of the **Connections
 - A partly shipped order shows **Partially Shipped**, not Will Call - Ready.
 
 **Proforma**
+
 - Proforma orders stay **Proforma - Awaiting Payment** until paid in full (by advance or invoices with nothing outstanding). Don't ship until the stage moves. Manual template: "ilL - Sales Order - Proforma, pay before shipping".
 
 **Hold for Ship**
+
 - The customer asked us to hold a built order: set **Hold Reason = Hold for Ship** and the ship date. It shows on the schedule board's "Hold for ship" table and leaves the ready-to-ship list's urgency alone.
 
 **Drop ship**
+
 - SO lines delivered by the supplier ("Supplier delivers to customer") are skipped on the pick list. The PO email tells the vendor "This is a drop shipment to our customer X. Please ship it without pricing or invoices in the cartons."
 
 > **SS-06-21** · Delivery note with Carrier = Freight and a PRO number typed in
@@ -572,11 +583,13 @@ On staging the On-Time Review section renders at the bottom of the **Connections
 ### Lesson 6.7: Answering "where's my order?"
 
 **Dealer view:** `/portal/orders/<SO>`
+
 - **Order Progress:** "n% delivered".
 - **Shipments** panel (count badge): one row per delivery note with name ("· Return" on returns), its lines (item, quantity, unit, line label), date, carrier and line count; every tracking number with a barcode icon ("box 1 of 3" on hover), linked for UPS / FedEx / USPS; "No tracking yet" when none; and a **Packing slip** link (the ilL Delivery Note PDF).
 - Timeline and a Delivery Status meter at the side.
 
 **Staff script**
+
 1. Open the SO (or the Command Center order page). Read **Stage** and **Stage Detail** (e.g. "Partially Shipped (81%)").
 2. Connections → Delivery Note → its Tracking Number (and Shipment, if labels were bought in ERPNext).
 3. Click the number, or open the Shipment for each box's status.
@@ -657,6 +670,7 @@ Helpdesk tickets link to the SO, not the delivery note or Shipment.
 - **Label printer (decision 7):** a 4×6 direct thermal printer with USB (Zebra ZD421d class, or a Rollo), with the office laser on letter paper as the fallback. ERPNext opens one merged PDF per Shipment, so any printer that prints PDFs from the browser works; set the paper to 4×6. Ask for the label size to be set to 4×6 in the n8n workflow so labels print 1:1.
 
 **Go-live checklist (decision 5, Phase 0)**
+
 - [ ] Warehouse Address with phone and email; set as Pickup Address
 - [ ] Shipment Parcel Templates for our boxes; set the Default Parcel Template
 - [ ] EasyPost: FedEx connected, carrier account id, tracker webhook and its secret
@@ -776,7 +790,9 @@ Sample Dealer A's order SO-A is at Pick & ship; the Shipping stage shows "On the
 7. Hand the delivery note to accounting for the invoice (Module 09).
 
 **Example B: the same order with EasyPost (staging test key, from the week of 30 Nov)**
-1-3. As above.
+
+Steps 1-3 as in Example A, then:
+
 4. On the saved delivery note click **Create Shipment**. Check the Delivery to address is the ship-to, not billing. Replace the suggested box with the two real boxes. Save, then Submit.
 5. **Create Labels**. Read the dialog: FedEx Ground, rate, 2 boxes, transit days, Address Verified. **Buy Labels ($xx.xx)**. The label PDF opens: print both labels at 4×6.
 6. Back on the delivery note, Carrier and Tracking Number are already filled. Submit it.
