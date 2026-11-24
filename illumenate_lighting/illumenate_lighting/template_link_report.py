@@ -34,6 +34,7 @@ from illumenate_lighting.illumenate_lighting.web_listing_schema import (
 	TEMPLATE_DOCTYPES,
 	WEBFLOW_PRODUCT_LINK_TYPES,
 	WEBFLOW_PRODUCT_LINKS,
+	template_doctypes_arg,
 )
 
 PRODUCT = "ilL-Webflow-Product"
@@ -251,16 +252,19 @@ def build_report(products, templates, product_brands, template_brands, default_b
 
 
 @frappe.whitelist(methods=["POST"])
-def link_consistency_report(apply=False, link_suggestions=False):
+def link_consistency_report(apply=False, link_suggestions=False, doctypes=None):
 	"""Report (and with ``apply``, fill) the template link on both sides. System Manager only.
 
-	``link_suggestions`` also links the same-name pairs in ``suggested_links``.
+	``link_suggestions`` also links the same-name pairs in ``suggested_links``. ``doctypes``
+	limits the template types (default: the site's ``webflow_sync_scope``, else all); products
+	are only changed through a template of those types.
 	"""
 	frappe.only_for("System Manager")
 	apply = frappe.parse_json(apply) if isinstance(apply, str) else bool(apply)
 	link_suggestions = (
 		frappe.parse_json(link_suggestions) if isinstance(link_suggestions, str) else bool(link_suggestions)
 	)
+	doctypes = template_doctypes_arg(doctypes)
 	link_fields = list(WEBFLOW_PRODUCT_LINK_TYPES)
 	products = frappe.get_all(
 		PRODUCT,
@@ -269,7 +273,7 @@ def link_consistency_report(apply=False, link_suggestions=False):
 	)
 	templates = {}
 	template_brands = {}
-	for doctype in TEMPLATE_DOCTYPES:
+	for doctype in doctypes:
 		fields = ["name", "webflow_product", "product_status", "product_category", "series"]
 		if doctype == TAPE:
 			fields.append("webflow_category")
@@ -279,6 +283,7 @@ def link_consistency_report(apply=False, link_suggestions=False):
 
 	report = build_report(products, templates, _brands(PRODUCT), template_brands, get_default_brand())
 	report["applied"] = apply
+	report["doctypes"] = doctypes
 	report["linked_suggestions"] = link_suggestions
 	if link_suggestions:
 		# Only the link; run the report again with apply to seed brands and categories.
@@ -360,14 +365,17 @@ def plan_live_promotion(templates, stages):
 
 
 @frappe.whitelist(methods=["POST"])
-def promote_live_templates(apply=False):
+def promote_live_templates(apply=False, doctypes=None):
 	"""Set Active templates whose Webflow Product is Published to Active + Live. Dry run by default.
+
+	``doctypes`` limits the template types (default: the site's ``webflow_sync_scope``, else all).
 
 	System Manager only. Runs no save hooks: each promoted template is already linked, which is
 	all Active + Live requires (D60).
 	"""
 	frappe.only_for("System Manager")
 	apply = frappe.parse_json(apply) if isinstance(apply, str) else bool(apply)
+	doctypes = template_doctypes_arg(doctypes)
 	stage_field = next((f for f in STAGE_FIELDS if frappe.db.has_column(PRODUCT, f)), None)
 	if not stage_field:
 		frappe.throw("The Webflow Product has no Webflow Status field on this site.")
@@ -379,10 +387,11 @@ def promote_live_templates(apply=False):
 		doctype: frappe.get_all(
 			doctype, fields=["name", "webflow_product", "product_status"], limit_page_length=0
 		)
-		for doctype in TEMPLATE_DOCTYPES
+		for doctype in doctypes
 	}
 	plan = plan_live_promotion(templates, stages)
 	plan["applied"] = apply
+	plan["doctypes"] = doctypes
 	if apply:
 		for row in plan["promote"]:
 			doctype, name = row["template"]

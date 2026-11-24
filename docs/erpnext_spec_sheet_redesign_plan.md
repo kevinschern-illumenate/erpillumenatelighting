@@ -2013,7 +2013,16 @@ This replaces the matrix above for Phase 8. The matrix is kept for its history; 
 
 ## 10. Moving from staging to main (promotion checklist)
 
-Owner approval required. Kept up to date as the work goes on (owner, 2026-11-04). Everything below has to be done or checked when the work moves from staging (`stagingillumenate.v.frappe.cloud`, Webflow `staging-illumenate.webflow.io`) to main. Open questions for promotion are Q22 and Q23 (section 8).
+Owner approval required. Kept up to date as the work goes on (owner, 2026-11-04).
+
+**Promotion plan (owner, 2026-11-23):** `docs/superpowers/plans/2026-11-23-spec-sync-production-linear-fixtures.md` carries this checklist out, one product type at a time, starting with Linear Fixtures (`ilL-Fixture-Template`), for the `illumenate` brand only. Decisions:
+- **P1:** a new production workflow `[PROD] Spec Gen & Webflow Sync`, with webhooks `ill-generate-spec-sheet` and `ill-product-sync`. The old `dvCvIpVLwzjgwccF` is disregarded.
+- **P2:** 206 is not synced in production yet.
+- **P3:** site config `webflow_sync_scope` limits generation and sync to the enabled types and brands.
+- **P4:** the production workflow is built from the staging export by `tools/build_spec_sync_workflow.py` (see `n8n_workflows/SPEC_SYNC.md`).
+- **P5:** the production ERP origin is `https://app.illumenate.lighting`.
+- **P6:** 1–3 pilot fixtures first, then the batch; `webflow_auto_push` stays off until the batch is verified.
+- **P7:** Claude builds; the owner or Kevin runs every production write. Everything below has to be done or checked when the work moves from staging (`stagingillumenate.v.frappe.cloud`, Webflow `staging-illumenate.webflow.io`) to main. Open questions for promotion are Q22 and Q23 (section 8).
 
 ### 10.0 Original promotion steps
 
@@ -2039,6 +2048,7 @@ Owner approval required. Kept up to date as the work goes on (owner, 2026-11-04)
 - [ ] `webflow_environment`: `production`.
 - [ ] `illumenate_environment`: `production` (or leave unset; it is read from the site name).
 - [ ] `spec_sheet_template_sites`: unset, or the main sites, so spec sheet pages come from each brand's Webflow Public Site URL.
+- [ ] `webflow_sync_scope`: `{"doctypes": ["ilL-Fixture-Template"], "brands": ["illumenate"]}` for the first phase. Add each product type as it is promoted. Unset means no limit (staging); a malformed value refuses everything.
 - [ ] `webflow_enrichment_debug` and `web_listing_legacy_read`: unset unless needed.
 - [ ] The notification recipient list: the owner and Kevin (D30, D83).
 
@@ -2074,7 +2084,7 @@ Owner approval required. Kept up to date as the work goes on (owner, 2026-11-04)
 ### 10.6 n8n
 
 - [ ] Back up the production workflow `dvCvIpVLwzjgwccF` first (10.0 step 2). Its saved draft has unpublished edits (2.7); do not publish them on their own.
-- [ ] Production spec and sync workflow replaced by the staging one, with every staging value swapped: ERPNext host `stagingillumenate.v.frappe.cloud` (in HTTP nodes and in the Format and Transform code), webhook paths (`staging-generate-spec-sheet`, `staging-product-sync-v2`), the webhook Header Auth credential, the ERPNext `Authorization` credential, the Webflow credentials for each brand (staging ilLumenate uses `Webflow ilLumenate Staging`; main uses the main-site credential), and the spec template fetch URL.
+- [ ] Production spec and sync workflow: since 2026-11-23, build it with `python tools/build_spec_sync_workflow.py --env production` from the exported staging workflow (`n8n_workflows/spec_sync_staging.json`) and import it, instead of swapping values by hand. The build covers every value below, and CI checks that none survives. What the swap covers: ERPNext host `stagingillumenate.v.frappe.cloud` (in HTTP nodes and in the Format and Transform code), webhook paths (`staging-generate-spec-sheet`, `staging-product-sync-v2`), the webhook Header Auth credential, the ERPNext `Authorization` credential, the Webflow credentials for each brand (staging ilLumenate uses `Webflow ilLumenate Staging`; main uses the main-site credential), and the spec template fetch URL.
 - [ ] The Transform nodes carry the `"Published"` case next to `"Publish"` in the same publish as the fail-closed `default:` (Phase 0 S5 finding). Without it, every Published product would be hidden.
 - [ ] No staging-only logic left: the `[staging]` name and slug prefixes, forced hidden items and the staging guard checks. On staging these are being removed for the ilLumenate branch only; the 206 branch keeps them until 206 has its own staging site (D82, Q22). Remove them from both branches on main.
 - [ ] The 206 nodes, including the owner's own stamp edit in `(206) Format Data to Inject`.
@@ -2085,7 +2095,7 @@ Owner approval required. Kept up to date as the work goes on (owner, 2026-11-04)
 
 ### 10.7 Open (**?**)
 
-- **?** Does 206 Lighting get its own staging Webflow site, or does 206 stay guarded on staging? (Q22)
+- **?** Does 206 Lighting get its own staging Webflow site, or does 206 stay guarded on staging? (Q22) For the first promotion (2026-11-23) 206 is not enabled on main; Q22 stays open for 206's own promotion.
 - **?** Which other n8n workflows (category, series and attribute sync, filter sync) need staging copies, and which move to main as they are? (Q23)
 
 ### 10.8 Staging setup (as of 2026-11-04)
@@ -2250,3 +2260,4 @@ Kept for the record. It was the prompt for Phase 0. For later phases, start from
 - 0.5 (2026-10-31): recorded Q7, Q13, Q16, Q17 and Q18. Replaced the effective-badge design (DC7) with the owner's design: manual `web_badge`, no `Discontinued` option, new read-only `is_discontinued` checkbox, Webflow override logic deferred (R1). `web_badge` replaces `product_badge` entirely. `custom_dimensions_image_2` deleted; the product keeps `dimensions_image`. Approved the Q18 a, b, d, e names. Added D43 to D47, tests 36 to 39, and open question Q19. Unblocked Phases 1b, 2 and 5 from the answered questions.
 - 0.6 (2026-10-31): recorded Q19 as D48: `is_discontinued` is computed from the resolver's effective state. Resolver output gains `is_discontinued` (replacing `badge`). Test 33b added. No open questions remain.
 - 0.7 (2026-11-04): Phases 0 to 4 consolidated from the phase notes; staging-to-main checklist merged into section 10. Decisions D49 to D61 kept their numbers; owner decisions the notes left unnumbered were recorded as D62 to D83. Superseded plan text is marked, not removed. Added Q20 to Q23, 8.2 (pending and cleanup), Phase 10 (cleanup) and 10.8 (staging setup). The separate phase notes were removed (git history keeps them).
+- 0.8 (2026-11-23): §10 points at the Linear Fixtures promotion plan and its decisions P1–P7. Added `webflow_sync_scope` (10.2) and the workflow builder (10.6). Q22 is answered for the first promotion only (206 is not enabled on main).

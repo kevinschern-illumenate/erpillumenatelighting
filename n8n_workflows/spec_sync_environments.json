@@ -1,0 +1,28 @@
+{
+  "_comment": "Environment values for tools/build_spec_sync_workflow.py. The staging entry describes n8n_workflows/spec_sync_staging.json (the live staging export); every other entry is built from it. Credentials map '<type>:<staging credential name>' to the target credential, or null to leave it unbound (bind it by hand after import). See n8n_workflows/SPEC_SYNC.md.",
+  "staging": {
+    "name": "[STAGING] Spec Gen & Webflow Sync",
+    "erp_origin": "https://stagingillumenate.v.frappe.cloud",
+    "webhooks": {
+      "Webhook (ilL-Publish-Job)": "staging-product-sync-v2",
+      "Webhook": "staging-generate-spec-sheet"
+    },
+    "brands": ["illumenate", "lighting_206"],
+    "staging_guards": true
+  },
+  "production": {
+    "name": "[PROD] Spec Gen & Webflow Sync",
+    "erp_origin": "https://app.illumenate.lighting",
+    "webhooks": {
+      "Webhook (ilL-Publish-Job)": "ill-product-sync",
+      "Webhook": "ill-generate-spec-sheet"
+    },
+    "brands": ["illumenate"],
+    "staging_guards": false,
+    "credentials": {
+      "erpNextApi:Authorization": {"id": "q5FbtRYh73x4yYeZ", "name": "Webflow Marketing API"},
+      "httpHeaderAuth:STAGING Sync Secret": null,
+      "httpHeaderAuth:Wefblow ilLumenate Staging": {"id": "ERCkeAfdcLoATXDa", "name": "Webflow ilLumenate"}
+    }
+  }
+}

@@ -18,7 +18,10 @@ Nothing here talks to Webflow. Syncing stays with the Webflow sync (Phase 5 deci
 import frappe
 from frappe import _
 
-from illumenate_lighting.illumenate_lighting.web_listing_schema import TEMPLATE_DOCTYPES
+from illumenate_lighting.illumenate_lighting.web_listing_schema import (
+	TEMPLATE_DOCTYPES,
+	template_doctypes_arg,
+)
 
 STATUS_KEY = "spec_sheet_job:{0}"
 STATUS_TTL = 6 * 60 * 60
@@ -45,13 +48,17 @@ def _brand(template, brand=None):
 @frappe.whitelist(methods=["POST"])
 def generate_spec_sheet(template_doctype, template_id, brand=None):
 	"""Queue spec sheet generation for a saved template. Returns ``{job_id}``."""
+	from illumenate_lighting.illumenate_lighting.api import n8n_config
 	from illumenate_lighting.illumenate_lighting.template_link import require_template_access
 
 	if template_doctype not in TEMPLATE_DOCTYPES:
 		frappe.throw(_("{0} is not a product template.").format(template_doctype))
+	# webflow_sync_scope: production turns product types and brands on one at a time.
+	n8n_config.require_doctype_in_scope(template_doctype)
 	require_template_access(template_doctype, template_id)
 	template = frappe.get_doc(template_doctype, template_id)
 	brand = _brand(template, brand)
+	n8n_config.require_brand_in_scope(brand)
 	# What the spec sheet needs (owner, 2026-11-03): stop and list what is missing.
 	from illumenate_lighting.illumenate_lighting.spec_sheet_check import check
 
@@ -65,8 +72,6 @@ def generate_spec_sheet(template_doctype, template_id, brand=None):
 			title=_("Spec sheet not ready"),
 		)
 	# Fail now, not in the background, when the site is not set up for n8n.
-	from illumenate_lighting.illumenate_lighting.api import n8n_config
-
 	n8n_config.spec_webhook_url()
 	n8n_config.auth_headers()
 	job_id = frappe.generate_hash(length=16)
@@ -229,12 +234,14 @@ DEFAULT_STATUSES = ("Active + Live",)
 def plan_regeneration(statuses=DEFAULT_STATUSES, names=None, doctypes=None):
 	"""Templates to regenerate: (to_generate, skipped). Each entry names the template, its brand
 	and the stable link it will get. Templates without a Target Brand are skipped."""
+	from illumenate_lighting.illumenate_lighting.api import n8n_config
 	from illumenate_lighting.illumenate_lighting.spec_sheet_route import public_url, template_brand
 
 	to_generate, skipped = [], []
 	for doctype in TEMPLATE_DOCTYPES:
 		if doctypes and doctype not in doctypes:
 			continue
+		in_scope = n8n_config.doctype_in_scope(doctype)
 		filters = {"product_status": ["in", list(statuses)]}
 		if names:
 			filters["name"] = ["in", list(names)]
@@ -243,6 +250,9 @@ def plan_regeneration(statuses=DEFAULT_STATUSES, names=None, doctypes=None):
 		):
 			brand = template_brand(doctype, row.name)
 			entry = {"template": (doctype, row.name), "product": row.webflow_product, "brand": brand}
+			if not in_scope or (brand and not n8n_config.brand_in_scope(brand)):
+				skipped.append({**entry, "reason": "not enabled on this site"})
+				continue
 			if not brand:
 				skipped.append({**entry, "reason": "no Target Brand"})
 				continue
@@ -279,11 +289,8 @@ def regenerate_spec_sheets(apply=False, statuses=None, templates=None, doctypes=
 	apply = frappe.parse_json(apply) if isinstance(apply, str) else bool(apply)
 	statuses = frappe.parse_json(statuses) if isinstance(statuses, str) else statuses
 	templates = frappe.parse_json(templates) if isinstance(templates, str) else templates
-	doctypes = (
-		frappe.parse_json(doctypes) if isinstance(doctypes, str) and doctypes.startswith("[") else doctypes
-	)
-	if isinstance(doctypes, str):
-		doctypes = [doctypes]
+	if doctypes:
+		doctypes = template_doctypes_arg(doctypes)
 	to_generate, skipped = plan_regeneration(statuses or DEFAULT_STATUSES, templates, doctypes)
 	pages = {}
 	for entry in to_generate:

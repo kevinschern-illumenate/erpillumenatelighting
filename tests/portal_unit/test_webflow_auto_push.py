@@ -67,6 +67,7 @@ class AutoPush(unittest.TestCase):
 			ROOT + ".api.n8n_config",
 			sync_webhook_url=MagicMock(return_value="https://n8n.example/w2"),
 			auth_headers=MagicMock(),
+			sync_scope=MagicMock(return_value={"doctypes": None, "brands": None}),
 		)
 		deps = {
 			module.__name__: module
@@ -282,6 +283,33 @@ class AutoPush(unittest.TestCase):
 				self.assertEqual(module.process(name), "drop")
 				self.assertEqual(self.rows, {})
 				self.export.stage_brands.assert_not_called()
+
+	def test_auto_push_refuses_out_of_scope_product(self):
+		# webflow_sync_scope (plan 2026-11-23 Task 1): another product type, or a brand this site
+		# does not sync, is dropped quietly; it never reaches n8n.
+		cases = (
+			({"doctypes": {"ilL-Fixture-Template"}, "brands": None}, {"kit_template": "KIT-RA01"}),
+			({"doctypes": {"ilL-Fixture-Template"}, "brands": None}, {}),
+			({"doctypes": None, "brands": {"lighting_206"}}, {"kit_template": "KIT-RA01"}),
+		)
+		for scope, links in cases:
+			with self.subTest(scope=scope, links=links):
+				module, _frappe = self.load(switch="1")
+				self.n8n.sync_scope.return_value = scope
+				self.product.update(links)
+				name = self.queue(module)
+				self.assertEqual(module.process(name), "drop")
+				self.assertEqual(self.rows, {})
+				self.export.stage_brands.assert_not_called()
+				self.notify.auto_push_failed.assert_not_called()
+
+	def test_auto_push_sends_in_scope_product(self):
+		module, _frappe = self.load(switch="1")
+		self.n8n.sync_scope.return_value = {"doctypes": {"ilL-Fixture-Template"}, "brands": {"illumenate"}}
+		self.product["fixture_template"] = "FX-1"
+		name = self.queue(module)
+		self.assertEqual(module.process(name), "push")
+		self.export.stage_brands.assert_called_once_with("kit-ra01", ["illumenate"])
 
 	def test_a_product_that_is_not_ready_notifies_at_once_and_never_raises(self):
 		module, _frappe = self.load(switch="1")
