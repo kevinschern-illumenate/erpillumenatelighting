@@ -204,7 +204,7 @@ What you see (captured):
 
 **Objective:** take a dealer from application to first login.
 
-1. **Application** arrives (public dealer-access page or a logged-in request) as an **ilL-Account-Request**, type Dealer application, state Pending. Form fields: **Company*** , **Your name***, **Email***, Phone, Website, Territory, Message. Guests are limited to 5 applications an hour; a hidden "fax number" field catches bots.
+1. **Application** arrives (public dealer-access page or a logged-in request) as an **ilL-Account-Request**, type Dealer application, state Pending. Form fields: **Company**, **Your name**, **Email** (required), Phone, Website, Territory, Message. Guests are limited to 5 applications an hour; a hidden "fax number" field catches bots.
 2. **Set up the Customer** (if new): Customer Group (tier: Bronze, Silver, Gold, Diamond or Antimatter under Dealer; Agency and Specifier exist too), default Payment Terms Template, addresses. Portal Operations → "New customers to set up" lists won deals without payment terms.
 3. **Decide:** open the request and click **Review request**. The dialog "Account request review" has **Decision** (Request information, Approve, Reject, Resolve profile request), **Verified Customer for linkage / dealer approval**, and **Outcome or requested information** (required). Click **Record decision**.
    - Approving links the user's Contact to the Customer and adds the **Dealer** role.
@@ -221,7 +221,7 @@ What you see (captured):
 - Site header with Projects, Sales Orders and Login.
 - "Apply for dealer access" with a house icon and the line "The ilLumenate catalog, configurators and project tools are available to authorized dealers. Designers, specifiers and distributors interested in becoming a dealer can apply here."
 - "Already a dealer? **Sign in**".
-- Fields: **Company***, **Your name***, **Email***, Phone, Website ("https://"), Territory ("Region or market you cover"), Message ("Tell us about your business and the projects you work on").
+- Fields: **Company**, **Your name** and **Email** (each marked required), Phone, Website ("https://"), Territory ("Region or market you cover"), Message ("Tell us about your business and the projects you work on").
 
 **SS-10-05** · Account request with the Review request button
 **URL:** `/app/ill-account-request/<name>` · **Role:** ilL Sales Review · **State:** a Pending request shows **Review request**; this capture is an Approved one
@@ -290,7 +290,7 @@ All fields are read-only in the desk; decisions go through **Review request**. E
 | Expected Modified | The record's version when the dealer asked; approval fails if it changed since | The portal |
 | Proposed Json | What the dealer asked for (form fields, note, new values) | The portal |
 | Request Key / Request Hash | Stops a double submit creating two requests | The portal |
-| Staff Note | The decision note (also the outcome the dealer sees) | Review request |
+| Staff Note | The decision note | Review request |
 | Responses Json | The dealer's replies to "Request information" | The portal |
 | Assigned To | The owner | Routing, or **Assign / due date** |
 | Reviewed By / Reviewed On | Who decided and when | Review request |

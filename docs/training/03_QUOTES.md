@@ -1016,7 +1016,7 @@ Use the training customer **Jeremy Test Integrations** and schedule **ILL-SCHED-
 | 2 | On ILL-SCHED-2026-00145 open **Actions → Request Quote for Dealer**, fill the dialog, then close it with ×. | Same dialog as SS-03-33-a; nothing created |
 | 3 | Open QR-00181. Which buttons show, and why is Prepare Quotation missing? | Assign / due date, Open in portal; the request is ISSUED |
 | 4 | New Quotation for Jeremy Test Integrations → Configure & Add Fixture → tick Skip schedule. Read the warning, then cancel. | The "NOT visible to the customer" warning (SS-03-46) |
-| 5 | Save a draft Quotation for the same customer → Get Items From → Fixture Schedule → pick ILL-SCHED-2026-00145. Read the preview; cancel. | Preview counts, including "Unconfigured (skipped)" for its 5 pending lines |
+| 5 | Save a draft Quotation for the same customer → Get Items From → Fixture Schedule → pick ILL-SCHED-2026-00145. Read the preview; cancel, then delete the draft. | Preview counts, including "Unconfigured (skipped)" for its 5 pending lines |
 | 6 | Work out the Silver-tier price of a $200 MSRP item. Check it against PRLE-0002. | $110.00 (45% off) |
 | 7 | Print one submitted Quotation in both ilL formats. List three differences. | List/Disc/Net vs Unit MSRP; payment schedule and acceptance vs "About these prices"; dealer vs end-client contact |
 | 8 | Find a quote in Follow Up. How many days since it was sent? | Stage Detail "Sent N days ago, no reply" |
