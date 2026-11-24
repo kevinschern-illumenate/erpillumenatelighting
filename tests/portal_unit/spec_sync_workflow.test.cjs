@@ -65,6 +65,54 @@ function test_staging_error_path_has_no_missing_node_refs() {
   );
 }
 
+// --- (ilL) Format Data to Inject ------------------------------------------------------------
+
+// Runs the node's code the way n8n does: $('<node>').first().json, and the code's own return.
+function runFormat(templateHtml, product) {
+  const code = fs.readFileSync(
+    "n8n_workflows/lib/ill_format_data_to_inject.js",
+    "utf8"
+  );
+  const inputs = {
+    "(ilL) Fetch Webflow Template": { data: templateHtml },
+    "Get Product Info": { message: { products: [product] } },
+  };
+  const $ = (name) => ({ first: () => ({ json: inputs[name] }) });
+  return require("vm").runInNewContext(`(function() {${code}\n})()`, { $ })
+    .json;
+}
+
+function test_footer_star_is_drawn_without_a_font() {
+  // The PDF renderer has no font with U+2726, so the footer showed empty boxes (owner, 2026-11-24).
+  const footer =
+    '<html><head></head><body><div class="spec-footer">PO BOX 297 <span class="spec-footer-star">✦</span> +1 (425)' +
+    ' <span class="spec-footer-star">✦</span> info</div>' +
+    '<div class="spec-footer">Subject to change <span class="text-span-3">✦</span> <span id="generated-date">x</span></div></body></html>';
+  const out = runFormat(footer, {
+    product_slug: "ill-sh01-sw",
+    short_description: "Keeps ✦ in data",
+  });
+  const page =
+    out.injected_html.split("window.ERP_DATA")[0] +
+    out.injected_html.split("</script>").slice(-1)[0];
+  assert.equal(
+    (out.injected_html.match(/class="ill-star"/g) || []).length,
+    3,
+    "three stars drawn as SVG"
+  );
+  assert.ok(
+    !/<span class="(spec-footer-star|text-span-3)">✦<\/span>/.test(
+      out.injected_html
+    ),
+    "no ✦ glyph left in the footer"
+  );
+  assert.ok(
+    out.injected_html.includes("Keeps ✦ in data"),
+    "product data is not rewritten"
+  );
+  assert.ok(page.length > 0);
+}
+
 // --- The production build --------------------------------------------------------------------
 
 const PRODUCTION_FILE = "n8n_workflows/spec_sync_production.json";
@@ -255,6 +303,7 @@ function test_build_is_reproducible() {
 const tests = [
   test_lib_snippets_match_live_nodes,
   test_staging_error_path_has_no_missing_node_refs,
+  test_footer_star_is_drawn_without_a_font,
   test_production_has_no_staging_values,
   test_production_webhooks_and_settings,
   test_guard_removal_keeps_publish_path,

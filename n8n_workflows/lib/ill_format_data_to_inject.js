@@ -895,6 +895,13 @@ const mappingScript = `<script>
 <\/script>`;
 
 // 6. Build final HTML string
+// The footer separator ✦ (U+2726) is in no font the PDF renderer has, so it printed as empty boxes
+// (owner, 2026-11-24). Draw it as a small inline SVG in the text colour instead. Only the page
+// template is changed, before ERP_DATA is added.
+const STAR_SVG = '<svg class="ill-star" viewBox="0 0 10 10" width="0.62em" height="0.62em" aria-hidden="true"'
+    + ' style="display:inline-block;vertical-align:0.02em;fill:currentColor">'
+    + '<path d="M5 0C5.6 3.4 6.6 4.4 10 5C6.6 5.6 5.6 6.6 5 10C4.4 6.6 3.4 5.6 0 5C3.4 4.4 4.4 3.4 5 0Z"/></svg>';
+html = html.split('✦').join(STAR_SVG).split('&#10022;').join(STAR_SVG).split('&#x2726;').join(STAR_SVG);
 let finalHtml = html;
 const headCloseIndex = finalHtml.indexOf('</head>');
 if (headCloseIndex !== -1) {
