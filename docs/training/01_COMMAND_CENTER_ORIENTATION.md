@@ -615,7 +615,7 @@ When `command_center_sync.py` first created the roles it seeded Editor for kevin
 
 *What you see:*
 - -a: the Decisions grid (3 Quotes expiring within 7 days, 3 Purchase orders not sent to the vendor…) and Recent changes now listing two "Training" edits on ILL-SHP-2026-0001 and a purchase order.
-- -a quirk: the arrow in "status: Planned -&gt; In transit" shows as "-&gt;" in the feed. It's a display bug in the feed, not bad data.
+- -a quirk: the feed shows the arrow in "status: Planned → In transit" as the escaped text `-&gt;` instead of an arrow. It's a display bug in the feed, not bad data.
 - -b: Workbench › Quotes › **Quotation** with the **Open** chip selected; tiles Records 10, Value $6,493, In progress 10, Touched this week 0; columns ID, Party, Status, Grand Total, Date, Modified ▼.
 - -b: siblings Quotation, Quote Request, Quote Offer; **Open in ERPNext** and **+ New Quotation**.
 
@@ -1086,7 +1086,7 @@ The Command Center sends no emails of its own. Notifications come from ERPNext's
 | "Not saved: A linked record needs both its type and its ID." / "… doesn't exist or you can't see it." | Agenda link to a missing or hidden record | Pick the record from the picker |
 | A saved view vanished | Different browser or computer, or site data cleared | Saved views are per browser; save it again |
 | The page opened on Sales pipeline, not my tab | The URL had no `#` | Bookmark the tab's URL (e.g. `/command-center#tasks`) |
-| Recent changes shows "-&gt;" | Display bug in the feed | Read it as "→"; the timeline in the desk shows it correctly |
+| Recent changes shows `-&gt;` | Display bug in the feed | Read it as "→"; the timeline in the desk shows it correctly |
 | Numbers look stale | Last read was a while ago | Check the "updated" time; Refresh |
 
 ---

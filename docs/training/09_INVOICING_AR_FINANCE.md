@@ -516,6 +516,8 @@ What you see (captured):
 - Both belong to the **bookkeeping** capability: Accounts Manager or Accounts User (decided 22 Nov).
 - **Gap to check:** the Portal Operations page itself only opens for System Manager, ilL Sales Review, ilL Order Approver, ilL Engineering, ilL Support, ilL Operations and ilL Integration (staging, 24 Nov). An Accounts-only user is refused at the page before the queues load. Until one of those roles (or the Accounts roles) is added to the page, open the queues as training.lead, or use the desk lists directly: `/app/customer?payment_terms=%5B%22is%22%2C%22not%20set%22%5D` and `/app/purchase-invoice?docstatus=1&custom_qbo_id=%5B%22is%22%2C%22not%20set%22%5D`.
 
+On staging (24 Nov 2026) the page still shows the older single section "Accounts & Finance" (Account review, New customers to set up: 30) because the 22 Nov change isn't deployed there yet; see SS-10-01 in Module 10. After the next deploy it splits into "Dealer Accounts" and "Accounting". Bills not in QuickBooks only appears once the QuickBooks bill settings are filled in.
+
 #### Collections and statements
 
 - **Weekly (Monday):** Finance tab aging, then the AR report with **Group By Customer**. Sort by days past due.

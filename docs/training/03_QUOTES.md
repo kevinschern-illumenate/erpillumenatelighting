@@ -281,7 +281,7 @@ Then **Submit request**. The page goes to `/portal/quote-requests/<QR>`.
 - If the schedule has since been versioned, the draft uses its newest open version.
 - The request moves to UNDER_REVIEW and is assigned to you. Running it again opens the same draft.
 
-**Step 3, review.** Rates, discounts, taxes, exclusions, **Valid Till**, terms, payment schedule (field reference below).
+**Step 3, review.** Rates, discounts, taxes, exclusions, **Valid Till**, terms, payment schedule (field reference in Lesson 3.9).
 - Need something from the dealer? In the request's **Portal conversation** set Visibility to **Message to the dealer** and Action to **Request customer information**, then **Send to dealer**. The request goes to INFORMATION_NEEDED ("Needs your reply" for the dealer); their reply moves it back to UNDER_REVIEW and rings your bell.
 - Notes for colleagues: leave Visibility on **Internal note (staff only)** and click **Save internal note**. Internal notes can't change the request's state.
 
@@ -351,6 +351,8 @@ Buttons on the form: **Prepare Quotation** (until ISSUED or CLOSED), **Assign / 
 > **SS-03-04** · Dealer: Request quote / engineering review dialog
 > **URL:** `/portal/schedules/<schedule>` · **Role:** Dealer · **State:** READY schedule, all lines configured, no open request
 > **Highlight:** the four fields; Submit request
+
+*Not yet captured: Request quote only shows on a READY schedule; the test schedule has unconfigured lines.*
 
 > **SS-03-05** · Desk quote request form
 > **URL:** `/app/ill-quote-request/<QR>` · **Role:** ilL Sales Review · **State:** REQUESTED (for the Prepare Quotation button)
