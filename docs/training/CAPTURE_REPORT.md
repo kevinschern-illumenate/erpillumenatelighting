@@ -76,8 +76,8 @@ Signed in as Administrator through Frappe Cloud, or as a training user through F
 | SS-03-01 | Quotes stage, full page | Captured |  | SS-03-01 |
 | SS-03-02 | "Quotes waiting on dealers" table with Include drafts on | Captured |  | SS-03-02 |
 | SS-03-03 | Quotation list showing the stage pill colours | Captured | Redact before publishing: customer names | SS-03-03 |
-| SS-03-32 | Schedule form Actions menu with "Request Quote for Dealer" | Not captured | Request Quote for Dealer is in PR #488; retake after deploy. |  |
-| SS-03-33 | (pair) Request Quote for Dealer dialog filled in; the new quote request with the "Raised b | Not captured | Request Quote for Dealer is in PR #488; retake after deploy (dialog only: submitting notifies staff). |  |
+| SS-03-32 | Schedule form Actions menu with "Request Quote for Dealer" | Captured | Retaken after PR #488 deployed (ILL-SCHED-2026-00145). | SS-03-32 |
+| SS-03-33 | (pair) Request Quote for Dealer dialog filled in; the new quote request with the "Raised b | Partly captured | -a (dialog filled) captured; -b needs the request sent, which emails staff, so it is left out. | SS-03-33-a |
 | SS-03-04 | Dealer: Request a quote dialog | Not captured | Request a quote only shows on a READY schedule; the test schedule has unconfigured lines. |  |
 | SS-03-05 | Desk quote request with Prepare Quotation button and conversation panel | Captured |  | SS-03-05 |
 | SS-03-06 | The draft Quotation it creates | Captured |  | SS-03-06 |
@@ -98,7 +98,7 @@ Signed in as Administrator through Frappe Cloud, or as a training user through F
 | SS-03-21 | Portal Operations → Product verification queue | Captured |  | SS-03-21 |
 | SS-03-22 | Customer form showing Customer Group (tier) | Captured |  | SS-03-22 |
 | SS-03-23 | Pricing Rule for a customer group | Captured |  | SS-03-23 |
-| SS-03-24 | (pair) Print preview: ilL Quotation vs ilL Quotation - MSRP | Partly captured | Only -a captured. The MSRP fix is in PR #488; retake -b after deploy. | SS-03-24-a |
+| SS-03-24 | (pair) Print preview: ilL Quotation vs ilL Quotation - MSRP | Captured | -b retaken after PR #488 deployed. | SS-03-24-a, SS-03-24-b |
 | SS-03-25 | Email composer with "ilL - Quotation - Quote sent" selected and PDF attached | Captured |  | SS-03-25 |
 | SS-03-26 | Portal Operations → Offers expiring soon | Captured |  | SS-03-26 |
 | SS-03-27 | Sales inbox with Relink | Captured |  | SS-03-27 |
@@ -189,7 +189,7 @@ Signed in as Administrator through Frappe Cloud, or as a training user through F
 | SS-07-05 | Below reorder level with Apply | Captured |  | SS-07-05 |
 | SS-07-06 | Data gaps list with inline lead time edit | Captured |  | SS-07-06 |
 | SS-07-07 | Requests tab lanes with Request quotes / Order directly buttons | Captured |  | SS-07-07 |
-| SS-07-08 | Draft RFQ created from the board (desk form) | Not captured | Drafting an RFQ fails on staging (ImportError). Fixed in PR #488; retake after deploy. |  |
+| SS-07-08 | Draft RFQ created from the board (desk form) | Captured | PUR-RFQ-2026-00001 (draft; Send Email unticked, marked TRAINING DEMO, never submit). | SS-07-08 |
 | SS-07-09 | Vendor quotes tab with Enter quote and Accept → draft PO | Captured |  | SS-07-09 |
 | SS-07-10 | Compare quotes view | Captured |  | SS-07-10 |
 | SS-07-11 | Purchase orders lanes | Captured |  | SS-07-11 |
@@ -210,12 +210,12 @@ Signed in as Administrator through Frappe Cloud, or as a training user through F
 | SS-07-26 | Customs tariff number with duty and additional tariff % | Captured |  | SS-07-26 |
 | SS-07-27 | ilL-Purchasing-Settings form | Captured |  | SS-07-27 |
 | SS-08-01 | Bills tab lanes with QuickBooks and 3-way match chips | Captured |  | SS-08-01 |
-| SS-08-02 | Draft bill created from a receipt (desk form) | Not captured | Draft bill fails on staging ("Due Date cannot be before Supplier Invoice Date"); main has a fix (3dcf97a) to verify after deploy. |  |
+| SS-08-02 | Draft bill created from a receipt (desk form) | Captured | ACC-PINV-2026-00002 from MAT-PRE-2026-00049; due-date fix verified. | SS-08-02 |
 | SS-08-03 | Receipts tab "Draft bill" button | Captured |  | SS-08-03 |
 | SS-08-04 | Broker bill using DUTY and BROKERAGE service items | Needs a scripted step | Needs a submit or a notification that would send email from staging, or a state staging does not have. |  |
 | SS-08-05 | Inbound shipment cost line linked to that bill, actual filled | Needs a scripted step | Needs a submit or a notification that would send email from staging, or a state staging does not have. |  |
 | SS-08-06 | Submitted bill showing the QuickBooks id field filled | Captured |  | SS-08-06 |
-| SS-08-07 | Portal Operations → Bills not in QuickBooks | Not captured | The Accounting section of Portal Operations is in PR #488; retake after deploy. |  |
+| SS-08-07 | Portal Operations → Bills not in QuickBooks | Not captured | The queue stays hidden until ilL-QBO-Settings has a bill webhook and start date; switching that on would send staging bills to QuickBooks. | |
 | SS-08-08 | ilL-QBO-Settings (bill webhook URL, start date, accounts) | Captured |  | SS-08-08 |
 | SS-08-09 | Payment Entry created from QuickBooks (synced from = QuickBooks Online) | Not captured | No QuickBooks-synced bill payment on staging. |  |
 | SS-08-10 | QBO sync log list with a Failed row | Captured |  | SS-08-10 |
@@ -255,7 +255,7 @@ Signed in as Administrator through Frappe Cloud, or as a training user through F
 | SS-11-01 | Workspace Product Catalog and New Product Setup Guide cards | Captured |  | SS-11-01 |
 | SS-11-02 | A linear fixture template form with its buttons | Captured |  | SS-11-02 |
 | SS-11-03a | New Product Wizard, family chosen | Captured |  | SS-11-03a |
-| SS-11-03b | Product Readiness with "Only incomplete" on | Not captured | Product Readiness SQL error is fixed in PR #488; retake after deploy. |  |
+| SS-11-03b | Product Readiness with "Only incomplete" on | Captured | Retaken after PR #488 deployed. | SS-11-03b |
 | SS-11-03c | Design Readiness showing fields to fill and volume | Captured |  | SS-11-03c |
 | SS-11-03 | Catalog Builder grid with a draft linear fixture | Captured |  | SS-11-03 |
 | SS-11-04 | Check in ERPNext result (passed) | Needs a scripted step | Needs a submit or a notification that would send email from staging, or a state staging does not have. |  |
