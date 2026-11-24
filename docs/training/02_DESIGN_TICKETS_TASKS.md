@@ -441,7 +441,7 @@ stateDiagram-v2
 - ILL-REQ-2026-00001 with the orange **Waiting on staff** indicator; **Open in portal**.
 - Next Action By = Staff; Drawing Review = Awaiting drawing; Engineering Review Task (empty); Related Sales Order; Fixture Schedule = ILL-SCHED-2026-00143; Named Technical Reviewer; the **Drawing Approval Required for Manufacturing** checkbox.
 - Request Type = Shop Drawing; Status = Draft; Priority = Normal; Requester; Created from Portal.
-- Reference: Project, Reference DocType, Fixture/Product, Item. The conversation panel and Internal Tracking are below the fold (SS-02-57, SS-02-58).
+- Reference: Project, Reference DocType, Fixture/Product, Item. The conversation panel and Internal Tracking are below the fold (SS-02-58, SS-02-60).
 
 > **SS-02-14** · Request type setup form
 > **URL:** `/app/ill-request-type/<name>` · **Role:** System Manager (Administrator) · **Highlight:** SLA hours per priority; default assignee role / user; Auto Create Task
@@ -958,6 +958,7 @@ stateDiagram-v2
 ## Worked examples
 
 **Example 1: a shop drawing for "Beth Residence" (Jeremy Test Integrations, our training dealer).**
+
 1. Monday 10:00 the dealer opens `/portal/drawings`, picks **Shop Drawing**, chooses project Beth Residence, writes "Kitchen cove L1-1, 12 ft run, show feed location", priority **High - Needed within 2 business days**, attaches a markup, **Submit Request**. The page shows "Request received: ILL-REQ-2026-000NN".
 2. The request becomes Submitted. SLA Deadline = Monday 10:00 + 48 weekday hours = Wednesday 10:00. With decision 4's routing it is assigned to the least-loaded ilL Engineering user (Kevin or Jay), who gets "New Document Request".
 3. `#design`: the Beth Residence card moves to **Drawing in progress** with "Drawing ILL-REQ-... · Submitted".
@@ -968,7 +969,7 @@ stateDiagram-v2
 
 **Example 2: a drawing that gates production.** Same request, but the order is placed and Kevin ticks **Drawing Approval Required for Manufacturing**, sets Named Technical Reviewer = the dealer's project manager, and links the Related Sales Order. Ryan tries to submit the work order and sees "Manufacturing is on hold: drawing request ILL-REQ-... requires approval of its current revision". The reviewer opens `/portal/drawings/<request>` and presses **Approve drawing**. Drawing Review = Approved; the hold queue drops the request; Ryan submits the work order.
 
-**Example 3: the dealer changes a fixture after approval.** The dealer edits L1-1's length on a new version. On save, the request gets Drawing Review = **Reapproval required** and a Task "Drawing reapproval: ILL-REQ-..." appears on Jay's to-dos. Jay publishes Version **B**; the reviewer must approve B before any work order can go.
+**Example 3: the build changes after approval.** The dealer asks for a longer L1-1 after ordering, and sales changes the line on the Sales Order. On save, the request gets Drawing Review = **Reapproval required** and a Task "Drawing reapproval: ILL-REQ-..." appears on Jay's to-dos. Jay publishes Version **B**; the reviewer must approve B before any work order can go.
 
 **Example 4: the morning Inbox.** Routing shows 4 tickets. "Re: Order confirmed: ilL-SAL-ORD-..." already carries its order, quote, schedule and project (auto-linked). Jay types it Sales Order, owner Jay, Save. A ticket from an architect asks for an IES file: type Design, owner Kevin. Kevin sees it in the Design tickets section of `#design`.
 

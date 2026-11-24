@@ -579,7 +579,7 @@ Both go to the PO's Contact Email. "ilL - Purchase Order - Ship date and ETA che
 
 1. From the PO sheet or the shipment sheet: **Draft receipt**. From the shipment sheet the receipt is also added to the shipment's Purchase Receipts at once.
 2. Count against the vendor packing slip. Type its number in **Supplier Delivery Note**. Print **ilL Receiving Report**: Received date, Purchase order, Vendor packing slip, Received by; one row per item with Purchase order, Received, Accepted, Rejected, **Put away to**, and an **OK** box; vendor part numbers under each item; signature lines **Received by / Inspected by / Date / Discrepancies reported to vendor**. No prices.
-3. **Quality check** (paper sign-off; no barcode scanning in our process). Tick OK per line, sign Inspected by. Anything short, damaged or wrong: enter it as **Rejected Quantity** on the line (Accepted Quantity drops to match) and set the **Rejected Warehouse**. ERPNext's Quality Inspection record is not part of the process (an Item with "Inspection Required before Purchase" ticked would need one before submit: leave it unticked).
+3. **Quality check** (paper sign-off; no barcode scanning in our process). Tick OK per line, sign Inspected by. Anything short, damaged or wrong: enter it as **Rejected Quantity** on the line, lower **Accepted Quantity** by the same amount yourself (ERPNext does not, see SS-07-22), and set the **Rejected Warehouse**. ERPNext's Quality Inspection record is not part of the process (an Item with "Inspection Required before Purchase" ticked would need one before submit: leave it unticked).
 4. **Submit** the receipt in the desk. Accepted Warehouse defaults to "Stores - ilL". Stock is valued at the PO rate (freight and duty come later through landed cost, Module 08).
 5. On submit:
     - a PO now 100% received gets Vendor Status **Delivered** (forward only) and the comment *marked Delivered (received on MAT-PRE-…)*;
@@ -776,7 +776,7 @@ A real staging chain, labelled TRAINING DEMO where the form allows.
 3. **Request quotes.** On Requests, press Request quotes on MAT-MR-2026-00007 with two suppliers. *Expected:* toast "Draft Request for Quotation … created, not submitted"; the MR moves to **Quoted**. Do not submit the RFQ.
 4. **Track a PO.** On a TRAINING DEMO PO, set Vendor Order / Ack # and Vendor Confirmed On; Save tracking. *Expected:* the card moves to Confirmed only if Vendor Status is Confirmed; the timeline has a "tracking edited by" comment.
 5. **Follow the shipment.** Open ILL-SHP-2026-0001 and PUR-ORD-2026-00054. *Expected:* PO Vendor Status Shipped, Estimated Arrival 2026-12-04, and a comment naming the shipment.
-6. **Receive with a reject.** Open MAT-PRE-2026-00050, set Rejected Quantity 1 on line 1, print the ilL Receiving Report. *Expected:* Accepted 0, Rejected 1 on that line. Discard; do not submit.
+6. **Receive with a reject.** Open MAT-PRE-2026-00050, set Rejected Quantity 1 and Accepted Quantity 0 on line 1. *Expected:* Total Quantity drops from 1,001 to 1,000; Rejected Warehouse is now needed. Discard; do not save or submit.
 7. **Check the settings.** Open ilL-Purchasing-Settings as `training.buyer`. *Expected:* read-only (Purchase User can't save).
 
 ## Slide deck beats

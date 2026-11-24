@@ -677,7 +677,7 @@ The **Stage** is worked out from data ERPNext already has. It shows as a coloure
 
 ## Worked example: an order request from schedule to approval
 
-Uses the staging order **ilL-SAL-ORD-Jeremy Test Integrations-00001** (intake OI-00209). Steps 1-5 happened on 5 Nov 2026; repeat them on a new training order only with the lead's say-so, because approval emails the dealer.
+Uses the staging order **ilL-SAL-ORD-Jeremy Test Integrations-00001** (intake OI-00209). The record shows the request at 08:39, the date confirmed at 08:45 and the submit at 08:46 on 5 Nov 2026; the steps between follow the normal path. Repeat them on a new training order only with the lead's say-so, because approval emails the dealer.
 
 1. **08:39** The dealer submits an order request from schedule "Main Schedule": PO 1234, requested delivery 2026-11-05. OI-00209 is created SUBMITTED with a draft order.
 2. Staff open the draft from `#orders` → Submitted lane → ↗, or from the bell.

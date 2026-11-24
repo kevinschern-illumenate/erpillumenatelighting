@@ -518,7 +518,7 @@ Anything else on a submitted document: amend it in the desk. **Purchase Order** 
 | Open the page and every tab except Catalog | Yes | Yes | Yes | Yes | Lock screen |
 | See Invoiced this month and Receivables on Executive | Locked tile | Locked tile | Yes | (needs Finance) | No |
 | See the Finance tab and Overview finance figures | Yes (known gap) | Yes | Yes | Yes | No |
-| Open Sales Invoice / Purchase Invoice / LCV in the Workbench | "🔒 Locked" card | Locked | Yes | (needs Finance) | No |
+| Open Sales Invoice / Purchase Invoice / LCV in the Workbench | "Locked" card (lock icon) | Locked | Yes | (needs Finance) | No |
 | Save fields in a side sheet | No | Yes | Yes | Yes | No |
 | + New (draft) in the Workbench | No | Yes | Yes | Yes | No |
 | Reassign requests, route and link tickets | No | Yes | Yes | Yes | No |
@@ -543,13 +543,13 @@ When `command_center_sync.py` first created the roles it seeded Editor for kevin
 > **Highlight:** locked finance tiles in -a; dollar figures in -b
 
 *What you see:*
-- -a: "Invoiced this month" and "Receivables" tiles show 🔒 and "Needs the Command Center Finance role". "Pipeline value by stage" has only Quotes out and Open sales orders. No Catalog tab.
+- -a: "Invoiced this month" and "Receivables" tiles show a lock icon and "Needs the Command Center Finance role". "Pipeline value by stage" has only Quotes out and Open sales orders. No Catalog tab.
 - -b: Invoiced this month **$0** (0% of $41,000 target) and Receivables **$7,804** (8 open invoices). Pipeline value adds Open purchase orders (spend) $2.9K and Invoices outstanding $7.8K.
 - Both: New dealers 1/8, Quotes out 11, Open sales orders 19, Tickets waiting over 2 days **43** (red).
 
 > **SS-01-47** · Workbench Pipeline area as a Viewer without Finance
 > **URL:** `/command-center#wb/~pipeline` · **Role:** training.viewer
-> **Highlight:** the Finance card "🔒 Locked · Needs the Command Center Finance role. Ask Kevin."; the "View only" badge
+> **Highlight:** the Finance card "Locked · Needs the Command Center Finance role. Ask Kevin."; the "View only" badge
 
 > **SS-01-48** · Finance tab as a Viewer (the known gap)
 > **URL:** `/command-center#finance` · **Role:** training.viewer · **State:** internal training use only; do not publish outside the company
@@ -816,7 +816,7 @@ When `command_center_sync.py` first created the roles it seeded Editor for kevin
 
 - Two areas: **Pipeline** (`#wb/~pipeline`, one card per stage) and **ilLumenate** (`#wb/~ill`, every app doctype grouped like the desk workspace). `#wb` opens the area you used last in this browser.
 - The landing shows an **Editor** or **View only** badge.
-- Pipeline cards: Sales, Design, Quotes, Sales orders, Purchasing, Manufacturing, Shipping, Service, Projects & tasks, Finance (Finance is "🔒 Locked" without the Finance role).
+- Pipeline cards: Sales, Design, Quotes, Sales orders, Purchasing, Manufacturing, Shipping, Service, Projects & tasks, Finance (Finance is "Locked", with a lock icon, without the Finance role).
 - ilLumenate groups: Product templates, Specifications, Attributes, Relationships & maps, Submittal mappings, Configured products, Projects & design, Dealer portal, Purchasing & inbound, Catalog & Webflow publishing, Product finder, Meetings, Logs & system (read-only; System Manager only), plus a **Settings** card whose links open the desk. The "Filter doctypes…" box narrows the cards. Counts load as each card scrolls into view.
 - A list page has: breadcrumb (Workbench › section), sibling doctypes as a switch, **Open in ERPNext**, **+ New <doctype>**, a search box, Saved views…, tiles (Records, Value or Outstanding, In progress, Touched this week), a status mix bar with chips, and a sortable table (click a header; ▲ ▼). 50 rows at a time, **Load more**.
 - **+ New** creates **drafts only**: "Saved as a draft in ERPNext. Nothing is submitted." Required fields first; "Fill in: …" lists what's missing. Doctypes that need line items show "This needs line items (…), which are added in ERPNext. Create it in ERPNext ›".
@@ -989,7 +989,7 @@ The **In progress** tile counts the amber rows among those loaded.
 | "Nothing on this agenda yet." / "No meeting agendas yet" | Empty agenda / none ever made |
 | "Nothing matches." / "No doctype matches." | Your search or filter found nothing |
 | "Nothing overdue, at risk or expiring right now. Use "Search all records"." | The agenda Suggested tab is empty |
-| A 🔒 tile or card | Your role doesn't include that (Finance, System Manager) |
+| A lock-icon tile or card | Your role doesn't include that (Finance, System Manager) |
 
 ---
 
@@ -1061,7 +1061,7 @@ The Command Center sends no emails of its own. Notifications come from ERPNext's
 | "Couldn't load data from ERPNext: ERPNext answered 500. Try Refresh." | The older feed failed | Refresh; if it repeats, tell Kevin (Error Log) |
 | "Couldn't load the workbench: … If this says the endpoint is missing, the "ilL Command Center Gateway" Server Script hasn't been added yet." | Gateway missing or failing | Kevin checks the Server Script and the deploy's "Command Center sync" lines |
 | "Portal requests couldn't load from the Command Center gateway (…)" | The `stages` call failed | The page falls back to the older feed; Refresh later |
-| Invoiced / Receivables tiles show 🔒 "Needs the Command Center Finance role" | No Finance role | Ask Kevin, if your job needs it |
+| Invoiced / Receivables tiles show a lock icon and "Needs the Command Center Finance role" | No Finance role | Ask Kevin, if your job needs it |
 | "Unavailable right now" on finance tiles; "Some counts are missing: …" | The Executive call failed | Executive's Refresh |
 | A Decisions card you expect is missing | Your ERPNext user can't read that doctype, or the field doesn't exist on this site | Expected; ask Kevin if you need that doctype |
 | Catalog tab missing | No ilL Catalog Publisher role | Ask Kevin; or use the standalone builder if you have access |
@@ -1130,7 +1130,7 @@ Use the training users. Don't save on records not labelled TRAINING DEMO.
 | 7 | Open a submitted sales order in the sheet and list the editable fields | training.lead | Estimated Ship Date, Stage Override, Hold Reason, Likely Ship Date, Proforma / Will Call, Floor Notes (those the site allows) |
 | 8 | Do the same as training.viewer | training.viewer | "View only. Ask Kevin for the Command Center Editor role to edit." |
 | 9 | On `#tasks`, filter Overdue + My items, save it as "Overdue, mine", reload, pick it | training.lead | The view reapplies |
-| 10 | Open `#wb/~pipeline` as training.viewer | training.viewer | Finance card shows 🔒 Locked |
+| 10 | Open `#wb/~pipeline` as training.viewer | training.viewer | Finance card shows Locked (lock icon) |
 | 11 | Open `#agenda`, open + Add from ERPNext › Suggested, close without adding | training.lead | The suggestion groups; nothing added |
 | 12 | Type "zzzz" in a Workbench list search | training.lead | "Nothing matches." |
 

@@ -34,7 +34,7 @@ Trainees can pick and pack an order, create the delivery note and Shipment, buy 
 
 ## Process map
 
-One order, one ship event, parcel carrier. The manual path (today) and the EasyPost path (rolling out) share every step except 5.
+One order, one ship event, parcel carrier. The manual path (today) and the EasyPost path (rolling out) share every step except 4 and 5.
 
 ```mermaid
 flowchart TD
@@ -99,6 +99,8 @@ stateDiagram-v2
   Voided --> Bought: Create Labels again
   Bought --> Bought: tracker events (In Progress → Delivered)
 ```
+
+A failed rate or buy sets Error; fix the cause and Create Labels again. Only Void Label takes a Shipment back from Bought, and cancel is refused until it does.
 
 | Carrier event (EasyPost) | Box status | Shipment Tracking Status | Extra |
 |---|---|---|---|
