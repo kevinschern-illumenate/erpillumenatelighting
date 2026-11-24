@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ilLumenate staging product page scripts
 // @namespace    https://illumenate.lighting/
-// @version      2026.11.12.1
+// @version      2026.11.24.1
 // @description  Main-site product page custom code, for testing on the staging Webflow site
 // @match        https://staging2-illumenate.webflow.io/products/*
 // @match        https://staging-illumenate.webflow.io/products/*
@@ -1314,7 +1314,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const closeModal = () => { const m = modalEl(); if (m) m.style.setProperty('display', 'none', 'important'); };
   const isOpen = () => { const m = modalEl(); return !!m && window.getComputedStyle(m).display !== 'none'; };
   let busy = false;
-  window.__illConfiguredSpec = '2026-11-08.3';
+  window.__illConfiguredSpec = '2026-11-24.1';
+
+  // A spec sheet tag is space-separated alternatives; an alternative "<a>+<b>" needs every part
+  // selected (fixtures' Output x Lens cells; owner, 2026-11-24). tokens: Set of "<step>:<code>".
+  const highlightMatch = (code, tokens) => String(code || '').toLowerCase().split(/\s+/).filter(Boolean)
+    .some(alt => alt.split('+').every(part => tokens.has(part)));
+  window.__illHighlightMatch = highlightMatch;
 
   document.addEventListener('click', (e) => {
     const target = e.target instanceof Element ? e.target : null;
@@ -1420,8 +1426,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const tokens = new Set(Object.entries(picked).map(([step, code]) => (step + ':' + code).toLowerCase()));
       const pages = pdfDoc.getPages();
       (Array.isArray(boxes) ? boxes : []).forEach(hl => {
-        const hit = String(hl.code || '').toLowerCase().split(/\s+/).some(t => tokens.has(t));
-        if (!hit) return;
+        if (!highlightMatch(hl.code, tokens)) return;
         const page = pages[hl.pageIndex] || pages[0];
         const padX = hl.isRow ? 0 : 2;
         const padY = hl.isRow ? 0.5 : 1.5;

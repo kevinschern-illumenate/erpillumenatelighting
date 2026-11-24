@@ -62,6 +62,15 @@ const HIGHLIGHT_RULES = {
         { spec: 'Finish', step_type: 'Finish' },
         { spec: 'Stock Length', step_type: 'Length', whole: true },
     ],
+    // Linear fixtures (owner, 2026-11-24). Their Dry/Wet icons, Output Options and Delivered
+    // Lumens tables and Accessories Dimensions titles are tagged in the page script (E2, E3b,
+    // E4, E5) from fixture_tokens below.
+    'Fixture Template': [
+        { spec: 'Light Color (CCT)', step_type: 'CCT' },
+        { spec: 'Lens Options', step_type: 'Lens Appearance' },
+        { spec: 'Mounting Options', step_type: 'Mounting Method' },
+        { spec: 'Finish Options', step_type: 'Finish' },
+    ],
 };
 const parseValues = opt => {
     if (Array.isArray(opt.allowed_values)) return opt.allowed_values;
@@ -77,6 +86,34 @@ erpData.spec_highlights = {};
         ? { whole: values.map(token).join(' ') }
         : { byLabel: Object.fromEntries(values.filter(v => v.label).map(v => [String(v.label).trim().toLowerCase(), token(v)])) };
 });
+
+// 3d. Fixture highlight tokens (owner, 2026-11-24): per step, its options' "<step>:<code>" tags
+// by label (lower case) and by code. The Output step lists its outputs per lens ({lensMap}).
+// A tag "<a>+<b>" needs both selections (the product page script, configured-spec-sheet.html).
+const optionTokens = type => {
+    const step = (erpData.configurator_options || []).find(o => o.option_type === type);
+    const tokens = { byLabel: {}, byCode: {} };
+    if (!step) return tokens;
+    let raw = step.allowed_values;
+    if (!raw) { try { raw = JSON.parse(step.allowed_values_json || '[]'); } catch (e) { raw = []; } }
+    const list = Array.isArray(raw) ? raw : [].concat(...Object.values((raw && raw.lensMap) || {}));
+    list.forEach(v => {
+        const code = v && String(v.code || v.value || '').trim();
+        if (!code) return;
+        const token = step.option_step + ':' + code;
+        tokens.byCode[code] = token;
+        if (v.label) tokens.byLabel[String(v.label).trim().toLowerCase()] = token;
+    });
+    return tokens;
+};
+if (erpData.product_type === 'Fixture Template') {
+    erpData.fixture_tokens = {
+        rating: optionTokens('Environment Rating'),
+        lens: optionTokens('Lens Appearance'),
+        output: optionTokens('Output Level'),
+        mounting: optionTokens('Mounting Method'),
+    };
+}
 
 // 4. Inject global window.ERP_DATA object into head + Spacing CSS
 const dataScript = `
@@ -109,6 +146,23 @@ const mappingScript = `<script>
           const el = document.getElementById(id);
           if (el && url) el.src = url;
       }
+
+      // Fixture highlight tags (owner, 2026-11-24): see fixture_tokens in the Format node.
+      const fx = data.fixture_tokens || null;
+      const tag = (el, value) => { if (el && value) el.setAttribute('data-highlight', value); };
+      // On text (table cells, titles) the tag goes on an inline-block span around the text, so
+      // the PDF generator's box fits the text rather than the whole cell.
+      const tagText = (el, value) => {
+          if (!el || !value) return;
+          const span = document.createElement('span');
+          span.style.display = 'inline-block';
+          span.textContent = el.textContent;
+          el.textContent = '';
+          el.appendChild(span);
+          tag(span, value);
+      };
+      const both = (outputToken, lensTokens) => outputToken
+          ? lensTokens.map(lens => outputToken + '+' + lens).join(' ') : '';
 
       // --- A. CORE HEADERS & INFO ---
       setText('product-name', data.product_name);
@@ -500,16 +554,18 @@ const mappingScript = `<script>
       const certTemplate = document.querySelector('.cert-icon');
       if (certTemplate) {
           const badges = (Array.isArray(data.certifications) ? data.certifications : [])
-              .map(c => c.certification_details && c.certification_details.badge_image)
-              .filter(Boolean);
+              .filter(c => c.certification_details && c.certification_details.badge_image);
           document.querySelectorAll('.cert-icon').forEach(el => { if (el !== certTemplate) el.remove(); });
           let anchor = certTemplate;
-          badges.forEach(url => {
+          badges.forEach(cert => {
+              const url = cert.certification_details.badge_image;
               const icon = certTemplate.cloneNode(true);
               icon.style.display = '';
               icon.removeAttribute('id');
               const img = icon.tagName === 'IMG' ? icon : icon.querySelector('img');
               if (img) { img.src = url; img.removeAttribute('srcset'); img.removeAttribute('loading'); }
+              // Dry/Wet (fixtures): "Dry Rated" is the Dry option, and so on.
+              if (fx) tag(icon, fx.rating.byLabel[String(cert.certification || '').trim().toLowerCase().replace(/\\s*rated$/, '')]);
               anchor.parentNode.insertBefore(icon, anchor.nextSibling);
               anchor = icon;
           });
@@ -566,6 +622,8 @@ const mappingScript = `<script>
                   if (titleEl) {
                       titleEl.removeAttribute('id');
                       if (row.title) { titleEl.innerText = row.title; } else { titleEl.style.display = 'none'; }
+                      // Mounting (fixtures): the title names the mounting option.
+                      if (fx && row.title) tagText(titleEl, fx.mounting.byLabel[String(row.title).trim().toLowerCase()]);
                   }
                   const imgEl = item.querySelector('#accdim-img');
                   if (imgEl) {
@@ -729,8 +787,19 @@ const mappingScript = `<script>
                   const cell = titlePattern.cloneNode(true);
                   cell.removeAttribute('id');
                   cell.innerText = column;
+                  if (fx) tagText(cell, fx.output.byCode[String(column)]);
                   head.appendChild(cell);
               });
+              // Fixtures: a value cell needs its column's output and its row's lens ("(White
+              // Lens)"); "(Other Lenses)" is every lens no other row names.
+              const lensOf = label => { const m = /\\(([^)]+?)\\s+lens(es)?\\)/i.exec(label || ''); return m ? m[1].trim().toLowerCase() : null; };
+              const namedLenses = new Set(optionRows.map(row => lensOf(row.label)).filter(name => name && name !== 'other'));
+              const rowLensTokens = label => {
+                  if (!fx) return [];
+                  const name = lensOf(label);
+                  if (name === 'other') return Object.entries(fx.lens.byLabel).filter(([key]) => !namedLenses.has(key)).map(([, token]) => token);
+                  return name && fx.lens.byLabel[name] ? [fx.lens.byLabel[name]] : [];
+              };
               const items = Array.from(rowPattern.children);
               const cellPattern = rowPattern.querySelector('#output-data') || items[1] || items[0];
               Array.from(body.children).forEach(child => child.remove());
@@ -741,10 +810,12 @@ const mappingScript = `<script>
                   label.removeAttribute('id');
                   label.innerText = row.label || '';
                   line.appendChild(label);
-                  (row.values || []).forEach(value => {
+                  const lensTokens = rowLensTokens(row.label);
+                  (row.values || []).forEach((value, c) => {
                       const cell = cellPattern.cloneNode(true);
                       cell.removeAttribute('id');
                       cell.innerText = value;
+                      if (fx) tagText(cell, both(fx.output.byCode[String(columns[c])], lensTokens));
                       line.appendChild(cell);
                   });
                   body.appendChild(line);
@@ -767,8 +838,11 @@ const mappingScript = `<script>
           } else {
               const head = lumenSection.querySelector('.table-title-wrapper');
               const lensCells = head ? Array.from(head.querySelectorAll('.table-title')).slice(1) : [];
+              // Fixtures: the lens headers take the Lens step, the output labels the Output step,
+              // and each value both.
+              const lensToken = i => (fx && lenses[i] ? fx.lens.byLabel[String(lenses[i].label).trim().toLowerCase()] : '');
               lensCells.forEach((cell, i) => {
-                  if (i < lenses.length) { cell.innerText = lenses[i].label; cell.removeAttribute('id'); }
+                  if (i < lenses.length) { cell.innerText = lenses[i].label; cell.removeAttribute('id'); tagText(cell, lensToken(i)); }
                   else cell.remove();
               });
               const body = lumenSection.querySelector('.table-data-wrapper');
@@ -779,13 +853,15 @@ const mappingScript = `<script>
                       const line = pattern.cloneNode(true);
                       line.classList.toggle('last-row', r === lumenRows.length - 1);
                       const label = line.querySelector('#output-item');
-                      if (label) { label.innerText = row.output || ''; label.removeAttribute('id'); }
+                      const outputToken = fx ? fx.output.byCode[String(parseFloat(row.output))] : '';
+                      if (label) { label.innerText = row.output || ''; label.removeAttribute('id'); tagText(label, outputToken); }
                       for (let i = 1; i <= 4; i++) {
                           const cell = line.querySelector('#output-c' + i);
                           if (!cell) continue;
                           if (i <= lenses.length) {
                               cell.innerText = (row.values || {})[lenses[i - 1].key] || '—';
                               cell.removeAttribute('id');
+                              if (fx && lensToken(i - 1)) tagText(cell, both(outputToken, [lensToken(i - 1)]));
                           } else {
                               cell.remove();
                           }

@@ -26,7 +26,10 @@ ORDER = [
 	"compatible-products-json.html",
 	"products-collection-before-body.html",
 ]
-MATCHES = ["https://staging2-illumenate.webflow.io/products/*", "https://staging-illumenate.webflow.io/products/*"]
+MATCHES = [
+	"https://staging2-illumenate.webflow.io/products/*",
+	"https://staging-illumenate.webflow.io/products/*",
+]
 
 
 # The staging site kept the main site's Code Embeds when it was duplicated, and they still run
@@ -110,7 +113,7 @@ def build():
 		"// ==UserScript==",
 		"// @name         ilLumenate staging product page scripts",
 		"// @namespace    https://illumenate.lighting/",
-		"// @version      2026.11.12.1",
+		"// @version      2026.11.24.1",
 		"// @description  Main-site product page custom code, for testing on the staging Webflow site",
 		*[f"// @match        {match}" for match in MATCHES],
 		"// @run-at       document-start",
