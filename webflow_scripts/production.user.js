@@ -5,6 +5,7 @@
 // @description  Repo product page code on illumenate.lighting, in this browser only, before it is pasted into Webflow
 // @match        https://illumenate.lighting/products/*
 // @match        https://www.illumenate.lighting/products/*
+// @match        https://illumenate-staging.webflow.io/products/*
 // @run-at       document-start
 // @grant        none
 // Loaded by the page: https://cdn.jsdelivr.net/npm/@finsweet/attributes-cmsfilter@1/cmsfilter.js

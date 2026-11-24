@@ -46,6 +46,8 @@ TARGETS = {
 		"matches": [
 			"https://illumenate.lighting/products/*",
 			"https://www.illumenate.lighting/products/*",
+			# The production site's own webflow.io staging domain (publish there first).
+			"https://illumenate-staging.webflow.io/products/*",
 		],
 	},
 }
