@@ -17,7 +17,36 @@ TEMPLATE_DOCTYPES = {
 	"ilL-LED-Sheet-Template": "ill_led_sheet_template",
 }
 
+
 # The Webflow Product link field that points at each template today.
+def template_doctypes_arg(doctypes=None):
+	"""The template doctypes a bulk tool covers, in ``TEMPLATE_DOCTYPES`` order.
+
+	``doctypes`` may be a list, one doctype name, or a JSON list string (System Console and
+	``bench execute`` pass strings). Omitted: the site's ``webflow_sync_scope`` doctypes when set,
+	else all six. An unknown name raises ``ValueError``.
+	"""
+	import json
+
+	import frappe
+
+	if isinstance(doctypes, str):
+		try:
+			doctypes = json.loads(doctypes) if doctypes.strip().startswith("[") else [doctypes]
+		except ValueError:
+			frappe.throw(f"doctypes must be a template doctype or a JSON list of them, not {doctypes!r}")
+	if not doctypes:
+		from illumenate_lighting.illumenate_lighting.api import n8n_config
+
+		doctypes = n8n_config.sync_scope()["doctypes"]
+		if doctypes is None:
+			return list(TEMPLATE_DOCTYPES)
+	unknown = sorted(set(doctypes) - set(TEMPLATE_DOCTYPES))
+	if unknown:
+		frappe.throw(f"Not product template doctypes: {', '.join(unknown)}")
+	return [doctype for doctype in TEMPLATE_DOCTYPES if doctype in doctypes]
+
+
 WEBFLOW_PRODUCT_LINKS = {
 	"ilL-Fixture-Template": "fixture_template",
 	"ilL-Tape-Neon-Template": "tape_neon_template",

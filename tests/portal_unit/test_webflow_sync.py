@@ -98,20 +98,11 @@ class WebflowSyncBrands(unittest.TestCase):
 		_configure_n8n(self, module, frappe)
 		return module, frappe
 
-	def test_spec_sheet_defaults_to_the_first_enabled_target_brand(self):
-		module, frappe = self.load()
-		frappe.get_doc.return_value = _product(("lighting_206", 0), ("illumenate", 1))
-		requests = __import__("sys").modules["requests"]
-		requests.post.return_value = MagicMock(json=lambda: {"ok": True})
-		self.assertEqual(module.request_spec_sheet("demo"), {"ok": True})
-		self.assertEqual(requests.post.call_args.kwargs["json"]["brand"], "illumenate")
-		self.assertEqual(requests.post.call_args.kwargs["json"]["product_slug"], "demo-slug")
-
-	def test_spec_sheet_rejects_a_brand_the_product_does_not_target(self):
-		module, frappe = self.load()
-		frappe.get_doc.return_value = _product(("illumenate", 1))
-		with self.assertRaisesRegex(ValueError, "not an enabled target brand"):
-			module.request_spec_sheet("demo", "lighting_206")
+	def test_the_old_product_spec_endpoint_is_gone(self):
+		# request_spec_sheet posted {product, product_slug, brand} to the spec webhook, which since
+		# Phase 3 takes a template; it had no callers and no webflow_sync_scope check (final review).
+		module, _frappe = self.load()
+		self.assertFalse(hasattr(module, "request_spec_sheet"))
 
 	def test_products_without_target_rows_use_the_default_brand(self):
 		module, _frappe = self.load()
@@ -238,6 +229,65 @@ class PublicationWorker(unittest.TestCase):
 		self.assertEqual(users, ["publication"])
 		module.claim.assert_called_once_with("illumenate", limit=5)
 		self.assertEqual([call.kwargs["job_data"]["job"] for call in frappe.enqueue.call_args_list], ["J1", "J2"])
+
+
+class SyncScope(unittest.TestCase):
+	"""Site config ``webflow_sync_scope`` limits what reaches n8n (plan 2026-11-23 Task 1)."""
+
+	load = PublicationWorker.load
+
+	def setUp(self):
+		self.module, self.frappe, _users = self.load()
+		# n8n_config may keep this frappe stub after the test: never leave a scope behind.
+		self.addCleanup(self.frappe.conf.pop, "webflow_sync_scope", None)
+		self.frappe.conf["webflow_sync_scope"] = {"doctypes": ["ilL-Fixture-Template"], "brands": ["illumenate"]}
+		self.module.inspect.return_value = {"readiness": {"ready": True}, "current_hash": "h1"}
+		self.module.request.side_effect = lambda product, brand, operation, digest: {"job": f"JOB-{brand}"}
+		self.frappe.msgprint = MagicMock()
+
+	def product(self, **links):
+		doc = _product(("illumenate", 1), ("lighting_206", 1))
+		doc.update(links)
+		doc.save = MagicMock()
+		self.frappe.get_doc.return_value = doc
+		return doc
+
+	def test_stage_brands_refuses_out_of_scope_template(self):
+		doc = self.product(tape_neon_template="TAPE-1")
+		for trigger in (self.module.trigger_sync_v2, self.module.trigger_publish_v2):
+			with self.subTest(trigger=trigger.__name__):
+				with self.assertRaises(ValueError) as caught:
+					trigger("demo")
+				self.assertIn("ilL-Tape-Neon-Template is not enabled for spec generation", str(caught.exception))
+		doc.save.assert_not_called()
+		self.module.request.assert_not_called()
+		self.frappe.enqueue.assert_not_called()
+
+	def test_product_without_template_is_out_of_scope_when_doctypes_are_limited(self):
+		self.product()
+		with self.assertRaises(ValueError):
+			self.module.stage_brands("demo")
+		self.module.request.assert_not_called()
+
+	def test_stage_brands_skips_out_of_scope_brand(self):
+		self.product(fixture_template="FX-1")
+		results = self.module.stage_brands("demo")
+		self.assertEqual(results[0], {"brand": "illumenate", "job": "JOB-illumenate"})
+		self.assertEqual(results[1]["brand"], "lighting_206")
+		self.assertIn("Brand lighting_206 is not enabled for Webflow sync", results[1]["issues"][0]["message"])
+		self.assertEqual([call.args[1] for call in self.module.request.call_args_list], ["illumenate"])
+
+	def test_publish_skips_out_of_scope_brand(self):
+		self.product(fixture_template="FX-1")
+		self.assertEqual(self.module.trigger_publish_v2("demo"), {"status": "success", "jobs": ["JOB-illumenate"]})
+		self.assertIn("lighting_206", self.frappe.msgprint.call_args.kwargs["msg"])
+
+	def test_unset_scope_changes_nothing(self):
+		del self.frappe.conf["webflow_sync_scope"]
+		self.product(tape_neon_template="TAPE-1")
+		self.assertEqual(
+			self.module.trigger_sync_v2("demo"), {"status": "success", "jobs": ["JOB-illumenate", "JOB-lighting_206"]}
+		)
 
 
 class ServiceUsers(unittest.TestCase):

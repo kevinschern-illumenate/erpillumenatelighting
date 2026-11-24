@@ -13,6 +13,7 @@ from frappe import _
 from frappe.utils import get_datetime, now_datetime
 
 from illumenate_lighting.illumenate_lighting import webflow_approvals, webflow_notify
+from illumenate_lighting.illumenate_lighting.api import n8n_config
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import canonical_json, fingerprint
 from illumenate_lighting.illumenate_lighting.api.product_readiness import content_record, evaluate
 from illumenate_lighting.illumenate_lighting.api.publication_contract import (
@@ -251,7 +252,7 @@ def _receipt(state):
 
 def _strip_volatile_metadata(data):
     """Recursively strip volatile child row IDs and timestamps from dictionaries before hashing."""
-    
+
     # Expand the volatile keys to ignore the documents child table entirely
     volatile_keys = {
         "name", "modified", "creation", "owner", "modified_by", "idx", "docstatus",
@@ -285,6 +286,7 @@ def request(product, brand, operation, expected_hash):
 	# Plan 4.19: nothing goes to Webflow while a restore or archive waits for approval.
 	webflow_approvals.assert_no_pending(product)
 	doc, state, config = _locked(product, brand)
+	_require_in_scope(doc, brand)
 	payload, readiness = _refresh(doc, state, config)
 	if state.current_hash != expected_hash:
 		frappe.throw(_("Product or dependencies changed; inspect the current revision first"))
@@ -345,6 +347,13 @@ def request(product, brand, operation, expected_hash):
 	return {"job": job.name, **_receipt(state)}
 
 
+def _require_in_scope(doc, brand):
+	"""webflow_sync_scope (site config): refuse a job this site does not send to n8n."""
+	refusal = n8n_config.product_scope_refusal(doc, brand)
+	if refusal:
+		frappe.throw(refusal)
+
+
 def _job_locked(name):
 	row = frappe.db.get_value(JOB, name, ["product", "brand"], as_dict=True)
 	if not row:
@@ -377,6 +386,8 @@ def claim(brand, limit=1):
 			continue
 		if webflow_approvals.pending(job.product):
 			continue  # held until the approval is decided (plan 4.19)
+		if n8n_config.product_scope_refusal(doc, job.brand):
+			continue  # webflow_sync_scope: left queued and untouched until its type is enabled
 		_, readiness = _refresh(doc, state, config)
 		if job.revision_hash != state.current_hash or state.approved_hash != state.current_hash:
 			job.state = "SUPERSEDED"
@@ -517,6 +528,7 @@ def retry(job):
 	require_catalog_reader()
 	job, doc, state, config = _job_locked(job)
 	webflow_approvals.assert_no_pending(job.product)
+	_require_in_scope(doc, job.brand)
 	_refresh(doc, state, config)
 	if (
 		job.state != "FAILED"

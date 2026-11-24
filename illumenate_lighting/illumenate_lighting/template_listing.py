@@ -45,6 +45,7 @@ from illumenate_lighting.illumenate_lighting.web_listing_schema import (
 	TEMPLATE_DOCTYPES,
 	WEBFLOW_PRODUCT_LINK_TYPES,
 	WEBFLOW_PRODUCT_LINKS,
+	template_doctypes_arg,
 )
 
 PRODUCT = "ilL-Webflow-Product"
@@ -764,18 +765,20 @@ def compare_listing(template_doctype=None, template_id=None, limit=0):
 
 
 @frappe.whitelist(methods=["POST"])
-def refresh_all_templates(apply=False, push=False):
+def refresh_all_templates(apply=False, push=False, doctypes=None):
 	"""Store specifications and configurator steps on every template. Dry run by default.
 
 	``apply`` saves each template (its rows are recalculated on save). ``push`` also saves
 	the linked products so they take the rows; without it products update on their next save.
+	``doctypes`` limits the template types (default: the site's ``webflow_sync_scope``, else all).
 	System Manager only.
 	"""
 	frappe.only_for("System Manager")
 	apply = frappe.parse_json(apply) if isinstance(apply, str) else bool(apply)
 	push = frappe.parse_json(push) if isinstance(push, str) else bool(push)
-	result = {"applied": apply, "pushed": push, "templates": 0, "failed": []}
-	for doctype in TEMPLATE_DOCTYPES:
+	doctypes = template_doctypes_arg(doctypes)
+	result = {"applied": apply, "pushed": push, "doctypes": doctypes, "templates": 0, "failed": []}
+	for doctype in doctypes:
 		for name in frappe.get_all(doctype, pluck="name"):
 			result["templates"] += 1
 			if not apply:

@@ -23,7 +23,15 @@ Site config keys (values are never logged or returned to the browser):
     production workflow has always used.
 ``webflow_environment``
     ``staging`` or ``production`` (default ``production``). See plan 4.11.
+``webflow_sync_scope``
+    Optional ``{"doctypes": [...], "brands": [...]}`` (or that object as a JSON string)
+    limiting which template doctypes and brands this site generates spec sheets for and
+    syncs to Webflow. A missing key or member means no limit. A malformed value refuses
+    everything. Production promotes one product type at a time
+    (docs/superpowers/plans/2026-11-23-spec-sync-production-linear-fixtures.md).
 """
+
+import json
 
 import frappe
 from frappe import _
@@ -33,8 +41,10 @@ SYNC_WEBHOOK_URL_KEY = "n8n_sync_webhook_url"
 SECRET_KEY = "n8n_sync_secret"
 SECRET_HEADER_KEY = "n8n_sync_secret_header"
 ENVIRONMENT_KEY = "webflow_environment"
+SCOPE_KEY = "webflow_sync_scope"
+SCOPE_MEMBERS = ("doctypes", "brands")
 
-# The key and header name request_spec_sheet used before Z1. Read only as a
+# The key and header name the old spec request (removed 2026-11-23) used before Z1. Read only as a
 # fallback so production keeps working until its site config is updated.
 LEGACY_SECRET_KEY = "ERP-Sync-Secret-2026"
 DEFAULT_SECRET_HEADER = "ERP-Sync-Secret-2026"
@@ -102,3 +112,85 @@ def is_staging():
 def get_webflow_environment():
 	"""Desk banner helper: return ``staging`` or ``production``. Holds no secrets."""
 	return webflow_environment()
+
+
+def sync_scope():
+	"""Return ``{"doctypes": set|None, "brands": set|None}`` from site config; ``None`` is no limit.
+
+	A value that is not an object of string lists fails closed: empty sets, so nothing is in scope.
+	"""
+	value = _conf(SCOPE_KEY)
+	if value in (None, ""):
+		return {member: None for member in SCOPE_MEMBERS}
+	closed = {member: set() for member in SCOPE_MEMBERS}
+	if isinstance(value, str):
+		try:
+			value = json.loads(value)
+		except ValueError:
+			return closed
+	if not isinstance(value, dict) or set(value) - set(SCOPE_MEMBERS):
+		return closed  # a misspelt key must not silently mean "no limit"
+	scope = {}
+	for member in SCOPE_MEMBERS:
+		names = value.get(member)
+		if names is None:
+			scope[member] = None
+		elif isinstance(names, list) and all(isinstance(name, str) for name in names):
+			scope[member] = set(names)
+		else:
+			return closed
+	return scope
+
+
+def doctype_in_scope(doctype):
+	allowed = sync_scope()["doctypes"]
+	return allowed is None or doctype in allowed
+
+
+def brand_in_scope(brand):
+	allowed = sync_scope()["brands"]
+	return allowed is None or brand in allowed
+
+
+def doctype_refusal(doctype):
+	return _("{0} is not enabled for spec generation and Webflow sync on this site.").format(doctype)
+
+
+def brand_refusal(brand):
+	return _("Brand {0} is not enabled for Webflow sync on this site.").format(brand)
+
+
+def product_template_doctype(product):
+	"""The template doctype a Webflow Product (doc or dict) links to, or None (Component, Accessory)."""
+	from illumenate_lighting.illumenate_lighting.web_listing_schema import WEBFLOW_PRODUCT_LINKS
+
+	return next((doctype for doctype, field in WEBFLOW_PRODUCT_LINKS.items() if product.get(field)), None)
+
+
+def product_scope_refusal(product, brand=None):
+	"""Why ``product`` (a Webflow Product doc or dict) may not sync to ``brand`` on this site, or None.
+
+	The one rule every path to n8n uses: the buttons, the automatic push and the job queue.
+	"""
+	scope = sync_scope()
+	if scope["doctypes"] is not None:
+		doctype = product_template_doctype(product)
+		if doctype is None:
+			return _(
+				"{0} has no product template, so it is not enabled for Webflow sync on this site."
+			).format(product.get("name"))
+		if doctype not in scope["doctypes"]:
+			return doctype_refusal(doctype)
+	if brand is not None and scope["brands"] is not None and brand not in scope["brands"]:
+		return brand_refusal(brand)
+	return None
+
+
+def require_doctype_in_scope(doctype):
+	if not doctype_in_scope(doctype):
+		frappe.throw(doctype_refusal(doctype))
+
+
+def require_brand_in_scope(brand):
+	if not brand_in_scope(brand):
+		frappe.throw(brand_refusal(brand))

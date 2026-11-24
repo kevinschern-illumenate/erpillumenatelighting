@@ -2753,6 +2753,20 @@ def _show_not_ready(brand, issues):
     )
 
 
+def _require_product_in_scope(doc):
+    """webflow_sync_scope (site config): refuse a product whose template type is not enabled."""
+    refusal = n8n_config.product_scope_refusal(doc)
+    if refusal:
+        frappe.throw(refusal)
+
+
+def _brand_scope_issue(docname, brand):
+    """A readiness-style issue for a target brand this site does not sync, or None."""
+    if n8n_config.brand_in_scope(brand):
+        return None
+    return {"message": n8n_config.brand_refusal(brand), "field": "target_brands", "record": docname}
+
+
 def stage_brands(docname, brands=None):
     """What the Sync to Webflow button does, for all enabled target brands or ``brands``.
 
@@ -2765,6 +2779,7 @@ def stage_brands(docname, brands=None):
     from illumenate_lighting.illumenate_lighting import webflow_auto_push
 
     doc = frappe.get_doc("ilL-Webflow-Product", docname)
+    _require_product_in_scope(doc)
     # This save is the push itself; it must not queue an automatic push of its own.
     doc.flags[webflow_auto_push.SKIP_FLAG] = True
     # Forces before_save() -> sync_custom_template_data() to pull latest template files
@@ -2780,6 +2795,10 @@ def stage_brands(docname, brands=None):
 
     results = []
     for brand in active_brands:
+        scope_issue = _brand_scope_issue(docname, brand)
+        if scope_issue:
+            results.append({"brand": brand, "issues": [scope_issue]})
+            continue
         # 2. Inspect the product to get its readiness and current state hash
         inspection = inspect(docname, brand)
         if not inspection.get("readiness", {}).get("ready"):
@@ -2820,6 +2839,7 @@ def trigger_publish_v2(docname):
 
     # 1. Fetch the document and determine active target brands
     doc = frappe.get_doc("ilL-Webflow-Product", docname)
+    _require_product_in_scope(doc)
     doc.flags[webflow_auto_push.SKIP_FLAG] = True  # a push itself; queue no automatic push
     doc.save(ignore_permissions=True)
     active_brands = _sync_target_brands(doc)
@@ -2832,6 +2852,10 @@ def trigger_publish_v2(docname):
     dispatched_jobs = []
     
     for brand in active_brands:
+        scope_issue = _brand_scope_issue(docname, brand)
+        if scope_issue:
+            _show_not_ready(brand, [scope_issue])
+            continue
 
         # 2. Inspect the product to get its readiness and current state hash
         inspection = inspect(docname, brand)
@@ -2880,48 +2904,6 @@ def upload_spec_pdf():
         return upload_file()
     finally:
         File.check_content = original_check_content
-
-@frappe.whitelist(methods=["POST"])
-def request_spec_sheet(docname, brand=None):
-    """Called by the desk button. Checks permissions, then forwards to n8n with the shared secret."""
-    _require_sync_access(docname)
-
-    import requests as req
-
-    webhook_url = n8n_config.spec_webhook_url()
-    auth_headers = n8n_config.auth_headers()
-
-    doc = frappe.get_doc("ilL-Webflow-Product", docname)
-    product_slug = doc.get("product_slug") or docname
-    targets = [code for code in _sync_target_brands(doc) if code]
-    if not brand:
-        brand = targets[0] if targets else (get_default_brand() or "illumenate")
-    elif brand not in targets:
-        frappe.throw(_("{0} is not an enabled target brand for this product.").format(brand))
-
-    payload = {
-        "product": docname,
-        "product_slug": product_slug,
-        "brand": brand
-    }
-    headers = {"Content-Type": "application/json", **auth_headers}
-
-    try:
-        resp = req.post(
-            webhook_url,
-            json=payload,
-            headers=headers,
-            timeout=180
-        )
-        resp.raise_for_status()
-        return resp.json()
-    except req.exceptions.Timeout:
-        frappe.throw(_("The spec generation request timed out. It may still be running."))
-    except req.exceptions.HTTPError as e:
-        frappe.throw(_("Pipeline failed with status {0}.").format(resp.status_code))
-    except Exception as e:
-        frappe.throw(_("Could not reach n8n: {0}").format(str(e)))
-
 
 @frappe.whitelist()
 def get_sync_progress(docname, since=None):
