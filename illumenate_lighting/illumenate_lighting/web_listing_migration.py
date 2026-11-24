@@ -72,9 +72,9 @@ def _empty(value):
 
 
 def _same(left, right):
-	if isinstance(left, str) and isinstance(right, (list, dict)):
+	if isinstance(left, str) and isinstance(right, list | dict):
 		left, right = right, left
-	if isinstance(left, (list, dict)) and isinstance(right, str):
+	if isinstance(left, list | dict) and isinstance(right, str):
 		try:
 			right = json.loads(right)
 		except ValueError:
