@@ -452,7 +452,17 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     try {
-      const documents = JSON.parse(jsonText);
+      // The sync sends document_type / document_title / document_file / display_order; items not
+      // synced since then still hold the old type / title / url / order keys
+      // (illumenate.lighting, 2026-11-24). Read both.
+      const parsed = JSON.parse(jsonText);
+      const documents = !Array.isArray(parsed) ? parsed : parsed.map(doc => ({
+        ...doc,
+        document_type: doc.document_type || doc.type,
+        document_title: doc.document_title || doc.title,
+        document_file: doc.document_file || doc.url,
+        display_order: doc.display_order !== undefined ? doc.display_order : doc.order
+      }));
 
       if (!Array.isArray(documents) || documents.length === 0) {
         if (emptyMessage) emptyMessage.style.setProperty('display', 'block', 'important');
@@ -1506,6 +1516,13 @@ window.fsAttributes.push([
         } catch (e) {
         }
     }
+    // The sync sends related_product / relationship_type; items not synced since then still
+    // hold the old product / type keys (illumenate.lighting, 2026-11-24). Read both.
+    products = (Array.isArray(products) ? products : []).map(prod => ({
+        ...prod,
+        related_product: prod.related_product || prod.product,
+        relationship_type: prod.relationship_type || prod.type
+    }));
 
     if (products.length === 0) {
         if (emptyState) emptyState.style.display = 'block';
