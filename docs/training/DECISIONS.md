@@ -133,3 +133,20 @@ This proposal is based on who owns what today (from Kevin's Desk) and the roles 
 **Why not switch on the existing "mark QUOTED on submit" hook:** it would mark the schedule QUOTED without creating an offer. The dealer couldn't accept online, and their schedule would version the next time they edit it.
 
 Train it as the rule: every quote for a portal dealer's schedule starts as a quote request, whether the dealer asks in the portal or by phone or email (Module 03, Lesson 3.2).
+
+## Findings from the 24 Nov review (need an owner decision)
+
+Found while expanding the modules and checking staging and production read-only. Nothing below was changed on either site.
+
+| # | Finding | Where | Recommendation |
+|---|---|---|---|
+| F1 | The Dealer role can create, edit, cancel and amend **Sales Invoice** and **Packing Slip**, with no company filter (manual permission rows, 9 Mar 2026). The portal reads both in code and does not need them. | Production and staging | Remove the Dealer row from both in Role Permissions Manager. Review the other unscoped Dealer rows too (ilL-Configured-Fixture, Item). |
+| F2 | The Company has no Default Holiday List, so SLA and production dates skip weekends only. The "2026" list covers Jul to Dec and labels 12 Jul as Saturday. | Production and staging | Fix the list, set it as the default, add 2027 before January. |
+| F3 | Portal Routing Settings has no queue rows, so quote and order requests get no due date. | Staging (check production) | Fill in the routing table before training staff on due dates. |
+| F4 | "Quote ready" emails only the schedule's creator. Staff-created schedules never notify the dealer. | Code | Fix queued as a separate task; until then staff tell the dealer. |
+| F5 | Landed-cost defaults mix "By qty" and "By value", so Draft LCV refuses shipments with both freight and duty. | Settings | Pick one basis (recommend By value for duty, then set freight the same). |
+| F6 | An empty cost line's actual is read as $0 billed, hiding "bill not in yet" chips. | Code | Fix queued as a separate task. |
+| F7 | ilL-QBO-Settings on staging has no accounts, bill webhook or cutover date; every BillPayment in the log failed. | Staging | Part of decision 6 (QuickBooks rollout). |
+| F8 | ilL-Shipping-Settings has never been saved; no parcel templates; EasyPost workflows not imported into n8n. | Staging | Part of decision 5 (EasyPost go-live). |
+| F9 | No purchasing@ Email Account on staging; the gallery sync webhook URL is incomplete (404); Postmark campaign workflows still active in n8n. | Staging / n8n | Tidy before training Module 13. |
+| F10 | Accounts-only users could not open Portal Operations. | Code | Fixed 24 Nov (237c344); live after the next deploy. |

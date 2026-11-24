@@ -4,11 +4,13 @@ A shared copy lives in Claude Docs: [ilLumenate Staff Training Outline](https://
 
 This folder holds the training **outlines** for every area of the Command Center ERP and the third-party apps around it. Each module is an outline with screenshot prompts and data-pull prompts. A second pass (the "capture bot") runs a local ERPNext instance, takes the screenshots, pulls real-world examples through the API, and turns each outline into a manual chapter and a slide deck.
 
-Every fact here was taken from the code and docs in this repo as of 2026-11-22 (branch `claude/brave-newton-yw7nr8`). Where a feature is built but has not run live yet, the outline says so. Teach it as "coming", or capture it on staging only.
+Every fact here was taken from the code and docs in this repo and checked against staging (read-only API) as of 2026-11-24 (branch `claude/brave-newton-yw7nr8`). Where a feature is built but has not run live yet, the outline says so. Teach it as "coming", or capture it on staging only.
 
 ## Capture status
 
-[CAPTURE_REPORT.md](CAPTURE_REPORT.md) lists every screenshot prompt with its status on staging (captured, or what it still needs). Screenshots are named by prompt ID.
+[CAPTURE_REPORT.md](CAPTURE_REPORT.md) lists every screenshot prompt with its status on staging (captured, or what it still needs). Screenshots are named by prompt ID and kept out of git; the doc embeds them under each prompt.
+
+The 24 Nov expansion took the set from about 3,200 to about 10,100 lines and from 280 to 736 screenshot prompts. Each module now has a process map (diagrams in the doc, mermaid or numbered flows here), screen tours, field reference tables, status lifecycles, a role matrix, behind-the-scenes notes, worked examples, a troubleshooting table quoting the real error messages, exercises on staging, slide beats and check-yourself questions.
 
 ## Modules
 
