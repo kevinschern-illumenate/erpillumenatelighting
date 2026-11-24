@@ -8,6 +8,7 @@
  "system_page": 0,
  "roles": [
   {"role": "System Manager"}, {"role": "ilL Sales Review"}, {"role": "ilL Order Approver"},
-  {"role": "ilL Engineering"}, {"role": "ilL Support"}, {"role": "ilL Operations"}, {"role": "ilL Integration"}
+  {"role": "ilL Engineering"}, {"role": "ilL Support"}, {"role": "ilL Operations"}, {"role": "ilL Integration"},
+  {"role": "ilL Catalog Publisher"}, {"role": "Accounts Manager"}, {"role": "Accounts User"}
  ]
 }

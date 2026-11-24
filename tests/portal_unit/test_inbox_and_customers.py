@@ -1,5 +1,7 @@
+import json
 import types
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock
 
 from test_services import ROOT, Record, load_service
@@ -58,7 +60,10 @@ class NewCustomers(unittest.TestCase):
 			frappe.get_meta.assert_called_with("Customer")
 
 	def test_queue_hidden_until_crm_sync_adds_the_deal_link(self):
-		with load_service(ROOT + ".portal.queues", dependencies("accounts", "bookkeeping")) as (module, frappe):
+		with load_service(ROOT + ".portal.queues", dependencies("accounts", "bookkeeping")) as (
+			module,
+			frappe,
+		):
 			frappe.get_meta = MagicMock()
 			frappe.get_meta.return_value.has_field.return_value = False
 			frappe.get_list = MagicMock(return_value=[Record(total=0)])
@@ -92,6 +97,27 @@ class AccountingQueues(unittest.TestCase):
 			self.assertEqual(module.QUEUES["bills"][1], "bookkeeping")
 			self.assertEqual(module.QUEUES["new_customers"][1], "bookkeeping")
 			self.assertEqual(module.QUEUES["accounts"][1], "accounts")
+
+	def test_every_queue_role_can_open_the_portal_operations_page(self):
+		# Desk refuses the page to a user without one of its roles, so a queue owned by a role
+		# the page leaves out can never be reached (Accounts users had no way in).
+		page = json.loads(
+			(
+				Path(__file__).resolve().parents[2]
+				/ "illumenate_lighting"
+				/ "illumenate_lighting"
+				/ "page"
+				/ "ill_portal_operations"
+				/ "ill_portal_operations.json"
+			).read_text()
+		)
+		page_roles = {row["role"] for row in page["roles"]}
+		with load_service(ROOT + ".portal.staff") as (staff, _frappe):
+			capabilities = staff.CAPABILITIES
+		with load_service(ROOT + ".portal.queues") as (module, _frappe):
+			for key, queue in module.QUEUES.items():
+				with self.subTest(queue=key):
+					self.assertFalse(capabilities[queue[1]] - page_roles)
 
 	def test_dealer_account_reviewers_do_not_see_bills(self):
 		with load_service(ROOT + ".portal.queues", dependencies("accounts")) as (module, frappe):
