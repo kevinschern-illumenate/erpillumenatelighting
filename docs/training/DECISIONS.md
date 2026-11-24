@@ -72,7 +72,7 @@ Only "System Design Review" exists today, so the portal's drawing request form s
 | Spec sheet, IES or CAD file | Resource | 24 / 8 / 4 | ilL Engineering role | No |
 | System Design Review (exists) | — | 16 / 8 / 4 | ilL Applications Engineer role | as set |
 
-**Decided:** SLA hours count weekdays only. **Built:** deadlines now skip Saturdays and Sundays (Friday 4 pm plus 24 hours is Monday 4 pm). Dates on the company's default holiday list are skipped too.
+**Decided:** SLA hours count weekdays only. **Built:** deadlines now skip Saturdays and Sundays (Friday 4 pm plus 24 hours is Monday 4 pm). Dates on the company's default holiday list are skipped too. **To do:** on production and staging the Company has no Default Holiday List yet (a "2026" list exists, 1 Jul to 31 Dec 2026), so today only weekends are skipped. Set Company → Default Holiday List, and add a 2027 list before January.
 
 ## 5. EasyPost go-live
 
