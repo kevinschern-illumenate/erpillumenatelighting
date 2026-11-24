@@ -344,7 +344,7 @@ What you see (captured):
 ### Lesson 10.5: Portal support issues and after-sale service
 
 - The portal's **Support** page (`/portal/support`) creates ERPNext **Issue** records (linked to the customer, contact, order and project), **not** Helpdesk tickets. Work them in Portal Operations → **Support responses** (decision 10: Jay checks it every morning alongside the Inbox).
-- **The portal form:** Category* (Order Status / Shipping, Technical Support, Returns / Warranty, Billing / Invoice, Other), Subject*, Related Order, Related Project, Description*, Attachments, **Submit Request**.
+- **The portal form:** Category (required: Order Status / Shipping, Technical Support, Returns / Warranty, Billing / Invoice, Other), Subject (required), Related Order, Related Project, Description (required), Attachments, **Submit Request**.
 - **Priority is set from the category:** Returns / Warranty and Billing / Invoice → High; Order Status and Technical → Medium; Other → Low.
 - On submit the Issue is assigned (support queue routing), the support team is belled, and sales@ gets "New support ticket <ID> from <dealer>".
 - Dealers see their company's tickets (status badges) under "Your Company's Support Requests", and each ticket's page at `/portal/support/<ticket>`.
@@ -375,7 +375,7 @@ What you see (captured):
 - Portal header and tabs Overview, Projects, Quotes, Orders, Drawings, Products, Resources, **Support** (selected), Account, and the bell.
 - Breadcrumb Portal › Support; banner "How can we help you?" with "Search for answers…".
 - Three cards: **Email Support** (support@illumenate.lighting), **Phone Support** (Mon-Fri, 7am-4pm PST, 1-425-381-2447), **Submit Ticket** (**Create Ticket**).
-- "Frequently Asked Questions" starting with "Ordering & Quotes", and the **Submit a Support Request** form starting with **Category*** "Select category…".
+- "Frequently Asked Questions" starting with "Ordering & Quotes", and the **Submit a Support Request** form starting with the required **Category** ("Select category…").
 
 **SS-10-11** · Support responses queue in Portal Operations
 **URL:** `/app/ill-portal-operations` → Support responses · **Role:** ilL Support · **State:** ideally with the Issue from SS-10-10 (staging has none, so the capture shows the empty queue)
