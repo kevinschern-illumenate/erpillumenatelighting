@@ -1,7 +1,8 @@
 """Stable spec sheet links (plan 4.7, Phase 4, D6, D19, D24).
 
 Every template has one public link that never changes, for its own brand (owner, 2026-11-03):
-``https://<site>/spec-sheets/<brand>_<template record name, lowercase>.pdf``, for example
+``https://<site>/spec-sheets/<brand>_<template record name, lowercase>.pdf`` (``<site>`` is site config
+``spec_sheet_base_url`` when set, else the site's address), for example
 ``/spec-sheets/illumenate-lighting_kit-ra01.pdf`` or ``/spec-sheets/206-lighting_kit-ra01.pdf``. It is a redirect, not a file: nothing is stored at
 ``/spec-sheets/``. The link answers with a temporary redirect (302, ``Cache-Control:
 no-store``) to the file the template's Spec Sheet field points at, so a new spec sheet is
@@ -58,10 +59,23 @@ def brand_slug(name):
 	return re.sub(r"[^a-z0-9]+", "-", (name or "").lower()).strip("-")
 
 
-def public_url(template_name, brand):
+# Site config: the address the stable links are given (owner, 2026-11-25), for example
+# "https://app.illumenate.lighting". Unset: the site's own address. Only the links are built
+# with it; the site must answer on that address too.
+BASE_URL_KEY = "spec_sheet_base_url"
+
+
+def base_url():
+	configured = str((frappe.conf or {}).get(BASE_URL_KEY) or "").strip().rstrip("/")
+	if configured:
+		return configured
 	from frappe.utils import get_url
 
-	return f"{get_url()}/{PREFIX}{brand_slug(brand_name(brand))}_{template_name.lower()}{SUFFIX}"
+	return get_url()
+
+
+def public_url(template_name, brand):
+	return f"{base_url()}/{PREFIX}{brand_slug(brand_name(brand))}_{template_name.lower()}{SUFFIX}"
 
 
 def template_brand(doctype, name):
