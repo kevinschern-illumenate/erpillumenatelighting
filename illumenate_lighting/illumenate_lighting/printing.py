@@ -113,6 +113,23 @@ def ill_print_fonts() -> list:
 	return fonts
 
 
+def ill_print_item_images(items) -> dict:
+	"""Look up Item images in one query for quotation rows without a saved image."""
+	try:
+		codes = {
+			item.get("item_code")
+			for item in items or []
+			if item.get("item_code") and not (item.get("image") or "").strip()
+		}
+		if not codes:
+			return {}
+		rows = frappe.get_all("Item", filters={"name": ["in", sorted(codes)]}, fields=["name", "image"])
+		return {row.name: row.image.strip() for row in rows if row.image}
+	except Exception:
+		_log("ilL print: could not read Item images")
+		return {}
+
+
 def ill_print_specs(item, max_specs=8, max_notes=3) -> dict:
 	"""A line's configured description, condensed for print.
 
