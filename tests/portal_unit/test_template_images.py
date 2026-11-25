@@ -22,6 +22,40 @@ class Images(unittest.TestCase):
 				["/files/ch-ra01.png", "/files/ch-ra01.png", "/files/lens.png", "/files/lens.png"],
 			)
 
+	def test_each_row_links_the_item_whose_image_it_shows(self):
+		# "Image From" (owner, 2026-11-25): the record to open to change the picture. The template
+		# item (Variant Of) when the picture is its, or when neither item has one; the item itself
+		# when only it has a picture. Rows without an item (Light Source) are left to their own step.
+		with load_service(ROOT + ".template_images") as (module, frappe):
+			items = {
+				"CH-RA01-SW": Record(variant_of="CH-RA01", image="/files/own.png"),
+				"LN-RA01-FR": Record(variant_of="LN-RA01", image="/files/lens-own.png"),
+				"EC-RA01": Record(variant_of="EC-PARENT", image=None),
+				"ACC-MC": Record(variant_of=None, image=None),
+			}
+			parents = {"CH-RA01": "/files/parent.png", "LN-RA01": None, "EC-PARENT": None}
+			frappe.db.get_value.side_effect = lambda doctype, name, fields, as_dict=False: (
+				items.get(name) if as_dict else parents.get(name)
+			)
+			rows = [
+				Record(component_type="Light Source", component_item=None),
+				Record(component_type="Profile", component_item="CH-RA01-SW"),
+				Record(component_type="Lens", component_item="LN-RA01-FR"),
+				Record(component_type="Endcap Set", component_item="EC-RA01"),
+				Record(component_type="Mounting Kit", component_item="ACC-MC"),
+			]
+			module.fill_component_images(Record(kit_components=rows), describe=lambda kind, code: None)
+			self.assertEqual(
+				[(r.component_image, r.image_source_doctype, r.image_source) for r in rows],
+				[
+					(None, None, None),
+					("/files/parent.png", "Item", "CH-RA01"),
+					("/files/lens-own.png", "Item", "LN-RA01-FR"),
+					(None, "Item", "EC-PARENT"),
+					(None, "Item", "ACC-MC"),
+				],
+			)
+
 	def test_descriptions_come_from_the_variant_attribute(self):
 		with load_service(ROOT + ".template_images") as (module, frappe):
 			attributes = {
