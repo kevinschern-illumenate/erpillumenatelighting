@@ -227,6 +227,57 @@ class DeskScheduleLine(unittest.TestCase):
 			sheets.resync_led_sheet_line_accessories.assert_not_called()
 
 
+class DeskGroupPartNumber(unittest.TestCase):
+	"""Quotes and orders show a group's readable part number, never its ILL-GRP-<hash> Item."""
+
+	def bundle(self, module, schedule, line_idx):
+		ordering = stub(ROOT + ".api.fixture_group_order", ensure_order_bundle=MagicMock(
+			return_value={"item_code": "ILL-X-144.0-GRP(A1B2)", "configured_group": "G", "bom": None}))
+		with patch.dict("sys.modules", {ROOT + ".api.fixture_group_order": ordering}):
+			artifact = module._group_order_bundle("G", {"M1": "Run A"}, {"company": "Co"}, schedule, line_idx)
+		return artifact, ordering.ensure_order_bundle
+
+	def test_bundle_is_the_row_item_with_or_without_a_schedule(self):
+		with desk() as (module, frappe, _builder, _sheets, _tape_neon):
+			frappe._dict = Record
+			artifact, made = self.bundle(module, None, None)
+			self.assertEqual(artifact["item_code"], "ILL-X-144.0-GRP(A1B2)")
+			self.assertEqual(artifact["group_part_number"], artifact["item_code"])
+			self.assertEqual(made.call_args.args[:2], ("G", {"M1": "Run A"}))
+			self.assertEqual(made.call_args.args[2]["company"], "Co")
+			self.assertIsNone(made.call_args.kwargs["line"])
+			# A reconfigured line of the same group keeps the number it was quoted under.
+			same = Doc(name="L1", configured_group="G", group_part_number="OLD-ABCD")
+			_artifact, made = self.bundle(module, Doc(name="S1", lines=[same]), 0)
+			self.assertIs(made.call_args.kwargs["line"], same)
+			other = Doc(name="L1", configured_group="OTHER")
+			_artifact, made = self.bundle(module, Doc(name="S1", lines=[other]), 0)
+			self.assertIsNone(made.call_args.kwargs["line"])
+
+	def test_schedule_line_carries_the_rows_part_number_and_the_groups_bom(self):
+		with desk() as (module, frappe, _builder, _sheets, _tape_neon):
+			frappe.db.get_value.return_value = "BOM-ILL-GRP-HASH-001"
+			schedule = Doc(name="S1", lines=[])
+			line = module._write_schedule_line(
+				schedule,
+				None,
+				"Linear Fixture",
+				{"configured_group": "G", "item_code": "ILL-X-144.0-GRP(A1B2)", "bom": None,
+					"group_part_number": "ILL-X-144.0-GRP(A1B2)", "template_code": "TPL"},
+				{"is_valid": True},
+				fixture_type="L1",
+				location="Lobby",
+				qty=2,
+				notes=None,
+				tape_neon_template=None,
+				msrp_unit=100,
+			)
+			self.assertEqual(line.configured_group, "G")
+			self.assertEqual(line.group_part_number, "ILL-X-144.0-GRP(A1B2)")
+			self.assertEqual(line.ill_item_code, "ILL-X-144.0-GRP(A1B2)")
+			self.assertEqual(line.ill_bom, "BOM-ILL-GRP-HASH-001")
+
+
 if __name__ == "__main__":
 	unittest.main()
 

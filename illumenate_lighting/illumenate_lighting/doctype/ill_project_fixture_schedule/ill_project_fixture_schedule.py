@@ -673,11 +673,14 @@ class ilLProjectFixtureSchedule(Document):
 				from illumenate_lighting.illumenate_lighting.api.quote_order_configurator import (
 					_apply_artifact_to_row,
 				)
+				from illumenate_lighting.illumenate_lighting.portal.group_display import run_labels
 
 				# Each run becomes its own configured build (stock Item, BOM, MSRP); the
 				# row orders the line's group part number, a Product Bundle of those runs.
 				try:
-					artifact = ensure_order_bundle(self, line, target_doc)
+					artifact = ensure_order_bundle(
+						line.configured_group, run_labels(line), target_doc, line=line
+					)
 				except ValueError as exc:
 					frappe.throw(_("Line {0}: {1}").format(line_label, str(exc)))
 				line_rows_before = len(target_doc.items)
