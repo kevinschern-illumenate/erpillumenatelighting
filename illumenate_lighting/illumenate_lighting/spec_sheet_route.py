@@ -78,6 +78,13 @@ def public_url(template_name, brand):
 	return f"{base_url()}/{PREFIX}{brand_slug(brand_name(brand))}_{template_name.lower()}{SUFFIX}"
 
 
+def current_link(url):
+	"""A saved stable link on today's base_url() (links saved before the domain changed keep
+	the old address until regenerated); anything that is not a stable link is returned as is."""
+	at = (url or "").find("/" + PREFIX)
+	return f"{base_url()}{url[at:]}" if at != -1 else url
+
+
 def template_brand(doctype, name):
 	rows = frappe.get_all(
 		"ilL-Child-Webflow-Brand-Target",

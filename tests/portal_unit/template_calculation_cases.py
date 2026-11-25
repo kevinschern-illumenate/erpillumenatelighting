@@ -571,6 +571,8 @@ def site(data=None, product_class=None, modules=None):
 	attributes.ATTRIBUTE_DOCTYPES = ATTRIBUTE_DOCTYPES
 	profile = types.ModuleType(ROOT + ".doctype.ill_spec_profile.ill_spec_profile")
 	profile.compute_profile_dimensions = lambda width, height: f"{width} x {height}"
+	route = types.ModuleType(ROOT + ".spec_sheet_route")
+	route.current_link = lambda url: url
 	stubs = {
 		"frappe": frappe,
 		"frappe.utils": frappe.utils,
@@ -579,6 +581,7 @@ def site(data=None, product_class=None, modules=None):
 		export.__name__: export,
 		attributes.__name__: attributes,
 		profile.__name__: profile,
+		route.__name__: route,
 	}
 	with patch.dict(sys.modules, {**stubs, **(modules or {})}):
 		yield frappe

@@ -176,6 +176,16 @@ class Route(unittest.TestCase):
 				"https://app.illumenate.lighting/spec-sheets/illumenate-lighting_ill-ra01-sw.pdf",
 			)
 
+	def test_saved_link_moves_to_base_url(self):
+		self.frappe.conf = {"spec_sheet_base_url": "https://app.illumenate.lighting"}
+		old = "https://illumenatelighting.v.frappe.cloud/spec-sheets/illumenate-lighting_ill-ra01-sw.pdf"
+		self.assertEqual(
+			self.module.current_link(old),
+			"https://app.illumenate.lighting/spec-sheets/illumenate-lighting_ill-ra01-sw.pdf",
+		)
+		for unchanged in (None, "", "/files/ill-ra01-sw.pdf"):
+			self.assertEqual(self.module.current_link(unchanged), unchanged)
+
 	def test_spec_sheet_paths(self):
 		key = self.module.key_from_path
 		self.assertEqual(key("/spec-sheets/kit-ra01.pdf"), "kit-ra01")
