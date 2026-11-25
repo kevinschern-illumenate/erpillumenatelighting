@@ -1,5 +1,6 @@
 /* Template form extras (owner, 2026-11-04):
-   - the brand pill, the record name and the Template Name at the top of the sidebar;
+   - the brand pill, the record name and the Template Name at the top of the sidebar, then a
+     "Go to ilL-Webflow-Product" link when a Webflow Product is linked (owner, 2026-11-25);
    - Actions > Apply Calculations, which recalculates the saved template (specifications,
      configurator, component and badge images) and saves its Webflow Product. */
 ['ilL-Fixture-Template', 'ilL-Tape-Neon-Template', 'ilL-LED-Sheet-Template', 'ilL-Driver-Template',
@@ -26,6 +27,9 @@
             }, __('Actions'));
         },
         template_name(frm) {
+            showTemplateName(frm);
+        },
+        webflow_product(frm) {
             showTemplateName(frm);
         },
     });
@@ -64,6 +68,15 @@ function showTemplateName(frm) {
     if (frm.doc.template_name) {
         $('<div class="text-muted"></div>').text(frm.doc.template_name)
             .css({'word-break': 'break-word', 'margin-top': '2px'}).appendTo($block);
+    }
+    // Under the Template Name: a link to the linked Webflow Product, only when one is linked.
+    if (frm.doc.webflow_product) {
+        $('<a class="ill-template-webflow-link"></a>')
+            .text(__('Go to ilL-Webflow-Product'))
+            .attr('href', `/app/ill-webflow-product/${encodeURIComponent(frm.doc.webflow_product)}`)
+            .attr('title', frm.doc.webflow_product)
+            .css({display: 'block', 'margin-top': '4px'})
+            .appendTo($block);
     }
     $side.prepend($block);
     hideTitleText(frm, $side);
