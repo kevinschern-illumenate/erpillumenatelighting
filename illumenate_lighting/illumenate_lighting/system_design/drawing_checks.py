@@ -37,7 +37,7 @@ Rules ported (code, severity):
   (the last driver with that code, as the LISP's ``foreach`` keeps it), the runs it lists load
   ``round((snapped_in / 12) * w_per_ft, 2)`` W each, where ``snapped_in`` sums each segment's cut-snapped
   length (``il-cut-snap``: whole ``cut_mm`` increments, at least one, unless the variant is
-  ``free_cut``); runs without a tape variant or ``w_per_ft`` add nothing. Over when the total (summed
+  ``free_cut``), times the run's stacked ``copies``; runs without a tape variant or ``w_per_ft`` add nothing. Over when the total (summed
   in the LISP's order) is over ``rated_w * usable_load_factor`` (factor 1.0 when absent).
 - ``CONTROL_UNKNOWN`` (error): a control's ``item_code`` is not in the catalog's ``controllers``.
 - ``DMX_UNIVERSE_FULL`` / ``DMX_ADDRESS_OVERLAP`` (errors): the DMX patch preview (``il-dmx-patch``):
@@ -354,6 +354,12 @@ def _run_issues(run, catalog):
 	return issues
 
 
+def _copies_load(load, run):
+	"""``il-copies-load``: a run's load times its stacked copies (LISP ``*`` keeps it a real)."""
+	copies = int(run.get("copies") or 1)
+	return None if load is None else (load * copies if copies > 1 else load)
+
+
 def _psu_issues(package, catalog):
 	issues = []
 	runs = _items(package.get("runs"))
@@ -367,7 +373,8 @@ def _psu_issues(package, catalog):
 		if driver is None or not _number(rated):
 			continue
 		fed = _items(psu.get("runs"))
-		loads = [run_load_w(run, catalog) for run in runs if run.get("id") in fed]
+		# A stacked run's copies each load the supply.
+		loads = [_copies_load(run_load_w(run, catalog), run) for run in runs if run.get("id") in fed]
 		total = 0.0
 		for load in reversed(loads):  # the LISP conses the loads, so it sums them last run first
 			if load is not None:
@@ -480,13 +487,132 @@ def _control_issues(package, catalog):
 	return issues
 
 
+# --- Groups (il-check-groups, il-model.lsp) ---------------------------------------------------
+
+GROUP_FAMILIES = ("Linear Fixture", *TAPE_FAMILIES)
+MAX_GROUP_MEMBERS = 12
+
+
+def _canonical(value):
+	import json
+
+	return json.dumps(value, sort_keys=True, separators=(",", ":"))
+
+
+def group_issues(package):
+	"""``il-check-groups``: issues on each group (ref: the group id), then on stacked runs in no group.
+
+	Model rules only, no catalog: the drawing import runs them itself so they hold whether or not the
+	catalog can be built. A group is one schedule line, so its runs share one style, Type and room.
+	"""
+	issues = []
+	runs = {run.get("id"): run for run in _items(package.get("runs"))}
+	seen = set()
+	for group in _items(package.get("groups")):
+		group_id = group.get("id")
+		listed = _items(group.get("runs"))
+		members = [runs[run_id] for run_id in listed if run_id in runs]
+		for run_id in listed:
+			if run_id not in runs:
+				issues.append(
+					_issue(
+						"GROUP_UNKNOWN_RUN", group_id, "error", f"Run {_il_str(run_id)} is not in the drawing"
+					)
+				)
+			elif run_id in seen:
+				issues.append(
+					_issue(
+						"GROUP_RUN_IN_TWO_GROUPS",
+						group_id,
+						"error",
+						f"Run {run_id} is already in another group",
+					)
+				)
+			seen.add(run_id)
+		if not members:
+			issues.append(
+				_issue("GROUP_EMPTY", group_id, "error", "The group has no runs; add runs with ILGROUP")
+			)
+			continue
+		count = sum(int(run.get("copies") or 1) for run in members)
+		if count > MAX_GROUP_MEMBERS:
+			issues.append(
+				_issue(
+					"GROUP_TOO_MANY",
+					group_id,
+					"error",
+					f"{count} runs, copies included; a group holds at most {MAX_GROUP_MEMBERS}",
+				)
+			)
+		styles = {_canonical(run.get("style")) for run in members}
+		if len(styles) > 1:
+			issues.append(
+				_issue(
+					"GROUP_MIXED_STYLE",
+					group_id,
+					"error",
+					"Runs in a group need one style; apply one with ILSTYLE",
+				)
+			)
+		family = _j(members[0].get("style"), "family")
+		if family not in GROUP_FAMILIES:
+			issues.append(
+				_issue("GROUP_FAMILY", group_id, "error", f"{_il_str(family)} runs cannot be grouped")
+			)
+		types = sorted(
+			{_il_str(run.get("fixture_type")) for run in members} - {_il_str(group.get("fixture_type"))}
+		)
+		if types:
+			issues.append(
+				_issue(
+					"GROUP_MIXED_TYPE",
+					group_id,
+					"error",
+					f"Runs of Type {', '.join(types)} in a group of Type {_il_str(group.get('fixture_type'))}",
+				)
+			)
+		rooms = {run.get("room") for run in members if run.get("room")}
+		if group.get("room"):
+			rooms.add(group["room"])
+		if len(rooms) > 1:
+			issues.append(
+				_issue(
+					"GROUP_MIXED_ROOM",
+					group_id,
+					"error",
+					f"Runs in rooms {', '.join(sorted(rooms))}; a group is in one room",
+				)
+			)
+		feeds = {(run.get("feed") or {}).get("method") or "end" for run in members}
+		if len(feeds) > 1:
+			issues.append(
+				_issue(
+					"GROUP_MIXED_FEED",
+					group_id,
+					"warning",
+					f"Runs fed {', '.join(sorted(feeds))}; the System Designer uses one feed method for the group",
+				)
+			)
+	for run in runs.values():
+		if int(run.get("copies") or 1) > 1 and run.get("id") not in seen:
+			issues.append(
+				_issue(
+					"COPIES_NOT_IN_GROUP",
+					run.get("id"),
+					"error",
+					"A stacked run must be in a group; run ILUPDATE",
+				)
+			)
+	return issues
+
+
 # --- Public API -------------------------------------------------------------------------------
 
 
 def check_package(package: dict, catalog: dict | None) -> list[dict]:
 	"""Every ported ILCHECK issue in PACKAGE (``ilq/2``, defaults filled) against CATALOG (``cad-catalog/1``).
 
-	Issues are ``{"code", "ref", "severity", "text"}`` in the LISP's order: runs, PSUs, controls.
+	Issues are ``{"code", "ref", "severity", "text"}`` in the LISP's order: runs, PSUs, controls, groups.
 	Overrides are not applied; see :func:`apply_overrides`.
 	"""
 	issues = []
@@ -498,6 +624,7 @@ def check_package(package: dict, catalog: dict | None) -> list[dict]:
 		issues.extend(_run_issues(run, catalog))
 	issues.extend(_psu_issues(package, catalog))
 	issues.extend(_control_issues(package, catalog))
+	issues.extend(group_issues(package))
 	return issues
 
 

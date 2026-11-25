@@ -13,6 +13,11 @@ everything else, exactly as for a run configured by hand:
   ``portal.configuration.save`` / ``portal.kit_configuration.save`` (receipts keep retries idempotent)
   and adds other-manufacturer lines through ``line_add.append_line``, all in one transaction.
 
+A drawn group (``groups``: ILGROUP, or a run stacked with ILSTACK whose ``copies`` are its members)
+is one multi-run group line, built through ``portal.configuration`` with a ``group_request`` exactly as
+the portal group editor builds one: one style, Type, room and power plan, its supplies on their own
+lines under it. The group line's ``cad_run_id`` is the group id; the receipt lists its members.
+
 Lines keep the run's CAD id in ``cad_run_id``. A re-import matches lines by that id (or the
 ``erp.line_key`` the receipt wrote into the drawing) and updates them in place; lines whose run is
 gone are removed only when the user confirms. A locked or quoted schedule imports into a new version.
@@ -269,6 +274,146 @@ def cad_id(run_id, part):
 	return run_id + KIT_SUFFIX if part == "kit" else run_id
 
 
+# --- Groups: drawn runs quoted as one multi-run group line ------------------------------------
+
+
+def group_of_run(package):
+	"""``{run id: group}`` for every run a group lists."""
+	return {run_id: group for group in package.get("groups") or [] for run_id in group.get("runs") or []}
+
+
+def group_members(group, runs_by_id):
+	"""``[(run, copy, label, member id)]`` in drawing order; a stacked run gives one member per copy."""
+	members = []
+	for run_id in group.get("runs") or []:
+		run = runs_by_id.get(run_id)
+		if run is None:
+			continue
+		copies = int(run.get("copies") or 1)
+		stem = str(run.get("label") or "").strip()
+		for copy in range(1, copies + 1):
+			if stem:
+				label = f"{stem} {copy}" if copies > 1 else stem
+			else:
+				label = f"{run_id} ({copy})" if copies > 1 else run_id
+			members.append((run, copy, label[:100], f"{run_id}#{copy}"))
+	return members
+
+
+def group_member_segments(run, style, family):
+	"""One member's segments in the units the group contract reads: millimetres, leaders and jumpers.
+
+	The lengths are the single-run import's (``linear_segments`` / ``tape_segments``), given as
+	``requested_length_mm`` so tape, COB and neon all read them the same way.
+	"""
+	if family == LINEAR:
+		return linear_segments(run, style)
+	segments = []
+	for item in tape_segments(run, style):
+		item = dict(item)
+		inches = item.pop("tape_length_value")
+		item.pop("tape_length_unit", None)
+		item["requested_length_mm"] = round(float(inches) * MM_PER_IN, 4)
+		segments.append(item)
+	return segments
+
+
+def group_request_for(group, members, family, template, selections):
+	"""``(group_request, ignored keys)``: the request the portal group editor would send for GROUP.
+
+	Like the editor, the style's options the group shares are kept, its power options become the
+	group's power policy, and anything else (a single run's feed type, its own segments) is not used.
+	The drawing's power choice wins over the style's.
+	"""
+	from illumenate_lighting.illumenate_lighting.api.group_contract import SHARED_FIELDS
+
+	shared_fields = SHARED_FIELDS[family]
+	shared = {
+		key: value for key, value in selections.items() if key in shared_fields and value not in (None, "")
+	}
+	power_choice = group.get("power") or {}
+	include = bool(power_choice.get("include_supplies", True))
+	power = {
+		"include_power_supply": include,
+		"dimming_protocol_code": selections.get("dimming_protocol_code") or None,
+		"override_max_run_ft": power_choice.get("override_max_run_ft")
+		or selections.get("override_max_run_ft")
+		or None,
+	}
+	if include:
+		# Included supplies go on their own schedule line under the group, as the portal editor saves them.
+		power["separate_supply_line"] = True
+	if (power_choice.get("allocation") or "grouped") == "grouped":
+		power["power_allocation"] = "grouped"
+	if family == LINEAR and selections.get("equal_length_runs"):
+		power["equal_length_runs"] = True
+	used = set(shared_fields) | set(GROUP_POWER_KEYS) | set(GROUP_NOT_OPTIONS)
+	ignored = sorted(key for key in selections if key not in used)
+	request = {
+		"schema_version": 3,
+		"family": family,
+		"template": template,
+		"shared": shared,
+		"power": power,
+		"members": [
+			{"member_id": member_id, "label": label, "input": {"segments": segments}}
+			for (_run, _copy, label, member_id), segments in members
+		],
+	}
+	return request, ignored
+
+
+# The style keys a group plans once for every member, and keys that are not options at all.
+GROUP_POWER_KEYS = (
+	"include_power_supply",
+	"dimming_protocol_code",
+	"override_max_run_ft",
+	"equal_length_runs",
+	"power_allocation",
+)
+GROUP_NOT_OPTIONS = ("fixture_template_code", "tape_neon_template", "segments", "segments_json")
+GROUP_FAMILIES = (LINEAR, *TAPE_FAMILIES)
+
+
+def member_rows(result, request):
+	"""Each member's built figures (inches, watts) in the dealer's order, from a group preview."""
+	ids = {}
+	presentation = result.get("presentation") or []
+	for raw, shown in zip(request["members"], presentation, strict=False):
+		ids[shown.get("member_key")] = raw.get("member_id")
+	rows = []
+	for run in result.get("runs") or []:
+		member_id = ids.get(run.get("member_key")) or ""
+		run_id, _sep, copy = member_id.rpartition("#")
+		requested = run.get("requested_length_mm")
+		made = run.get("manufactured_length_mm")
+		rows.append(
+			{
+				"member_key": run.get("member_key"),
+				"label": run.get("label"),
+				"run": run_id or None,
+				"copy": int(copy) if copy.isdigit() else None,
+				"drawn_length_in": round(float(requested) / MM_PER_IN, 2) if requested else None,
+				"server_length_in": round(float(made) / MM_PER_IN, 2) if made else None,
+				"leader_in": round(float(run["leader_length_mm"]) / MM_PER_IN, 2)
+				if run.get("leader_length_mm")
+				else None,
+				"circuits": run.get("circuits"),
+				"watts": run.get("watts"),
+			}
+		)
+	return rows
+
+
+def supply_rows(result):
+	plan = (result.get("build") or {}).get("power_plan") or {}
+	return [
+		{"item_code": row.get("driver_item"), "qty": row.get("qty")}
+		for row in plan.get("drivers") or []
+		if row.get("driver_item")
+	]
+
+
 def request_fingerprint(request):
 	from illumenate_lighting.illumenate_lighting.api.configuration_contract import fingerprint
 
@@ -511,6 +656,155 @@ class Planner:
 		)
 		return row, saves
 
+	def template_name(self, family, template):
+		"""The template's document name (a CAD style may name a tape template by its code)."""
+		from illumenate_lighting.illumenate_lighting.portal.presets import FAMILY_DOCTYPES, _template_name
+
+		if family not in FAMILY_DOCTYPES:
+			return template
+		return _template_name(family, template) or template
+
+	def match_group(self, group):
+		line = self.by_cad_id.get(group["id"])
+		if line is None:
+			key = (group.get("erp") or {}).get("line_key")
+			candidate = self.by_line_key.get(key) if key else None
+			if candidate is not None and not candidate.get("cad_run_id"):
+				line = candidate
+		return line
+
+	def plan_group(self, group, runs_by_id):
+		"""GROUP's runs (each stacked copy a member) planned as one multi-run group line.
+
+		The group is built exactly as the portal group editor builds one (``group_request`` through
+		``portal.configuration``), so the System Designer, quotes and orders treat it the same way.
+		"""
+		from illumenate_lighting.illumenate_lighting.portal import configuration
+		from illumenate_lighting.illumenate_lighting.portal.site_flags import fixture_groups_enabled
+		from illumenate_lighting.illumenate_lighting.system_design.drawing_checks import group_issues
+
+		members = group_members(group, runs_by_id)
+		first = members[0][0] if members else {}
+		style = first.get("style") or {}
+		power = group.get("power") or {}
+		include = bool(power.get("include_supplies", True))
+		row = {
+			"id": group["id"],
+			"kind": "group",
+			"handle": group.get("handle"),
+			"fixture_type": group["fixture_type"],
+			"room": group.get("room") or first.get("room"),
+			"family": style.get("family"),
+			"template": style.get("template"),
+			"style": style.get("preset") or style.get("template"),
+			"runs": list(group.get("runs") or []),
+			"drawn_length_in": round(sum(drawn_length_in(run) for run, *_rest in members), 2),
+			"include_supplies": include,
+			"allocation": power.get("allocation") or "grouped",
+			"status": "ok",
+			"messages": [],
+			"parts": [],
+			"members": [],
+			"supplies": [],
+		}
+		listed = {"runs": [runs_by_id[r] for r in row["runs"] if r in runs_by_id], "groups": [group]}
+		for issue in group_issues(listed):
+			row["messages"].append(issue["text"])
+			if issue["severity"] == "error":
+				row["status"] = "error"
+		if not fixture_groups_enabled():
+			row["status"] = "error"
+			row["messages"].append(_("Multi-run groups are not enabled for this site"))
+		if row["status"] == "error" or not members:
+			return row, []
+		problem = self.template_problem(style["family"], style["template"])
+		if problem:
+			row["status"] = "error"
+			row["messages"].append(problem)
+			return row, []
+		_selections, dropped = clean_selections(style.get("selections"))
+		if dropped:
+			row["messages"].append(_("Ignored price fields in the style: {0}").format(", ".join(dropped)))
+		line = self.match_group(group)
+		entry = {
+			"part": "group",
+			"family": style["family"],
+			"template": style["template"],
+			"cad_run_id": group["id"],
+			"line_key": line.get("line_key") if line is not None else None,
+			"action": "update" if line is not None else "add",
+			"members": len(members),
+		}
+		row["parts"].append(entry)
+		# The first run alone asks for any option the style leaves open, once for the whole group.
+		_part, probe = requests_for(first)[0]
+		probe = self.apply_choices({"id": group["id"]}, probe)
+		probe["selections"] = {**probe["selections"], "include_power_supply": include}
+		result = self.calculate(probe)
+		if not result.get("success"):
+			validation = result.get("validation") or {}
+			missing = validation.get("missing_fields") or []
+			row["status"] = "needs_choice" if missing else "error"
+			if missing:
+				entry["missing"] = list(missing)
+				row["messages"].append(_("Choose {0} for this group").format(", ".join(missing)))
+			else:
+				row["messages"].append(validation.get("error") or _("This group could not be configured"))
+			return row, []
+		template = self.template_name(style["family"], style["template"])
+		family = configuration.family_for_template(style["family"], template)
+		geometry = [(member, group_member_segments(member[0], style, family)) for member in members]
+		request, ignored = group_request_for(group, geometry, family, template, probe["selections"])
+		if ignored:
+			row["messages"].append(_("Not used by a group: {0}").format(", ".join(ignored)))
+		build = {
+			"family": family,
+			"template": template,
+			"selections": {"group_request": request},
+			"segments": None,
+		}
+		result = self.calculate(build)
+		if not result.get("success") or not result.get("is_valid", True):
+			row["status"] = "error"
+			row["messages"].append(result.get("error") or _("This group could not be configured"))
+			return row, []
+		row["members"] = member_rows(result, request)
+		row["supplies"] = supply_rows(result)
+		made = [member["server_length_in"] for member in row["members"] if member.get("server_length_in")]
+		row["server_length_in"] = round(sum(made), 2) if made else None
+		watts = sum(member.get("watts") or 0 for member in row["members"])
+		circuits = sum(member.get("circuits") or 0 for member in row["members"])
+		entry.update(
+			family=family,
+			template=template,
+			server_length_in=row["server_length_in"],
+			watts=round(watts, 2),
+			runs_count=circuits,
+			input_hash=result.get("input_hash"),
+		)
+		row["messages"].extend(_messages(result))
+		row["messages"].append(
+			_("{0} runs on one group line, {1} circuits, {2} W").format(
+				len(members), circuits, round(watts, 1)
+			)
+		)
+		if include:
+			supplies = ", ".join(f"{s['qty']} x {s['item_code']}" for s in row["supplies"])
+			row["messages"].append(_("Shared supplies: {0}").format(supplies or _("none selected")))
+		else:
+			row["messages"].append(_("Supplies not included (external power)"))
+		meta = {"id": group["id"], "fixture_type": group["fixture_type"], "location": group.get("location")}
+		if group.get("notes"):
+			meta["notes"] = group["notes"]
+		if (
+			line is not None
+			and _same_meta(line, meta)
+			and _same_request(line.get("ill_configurator_request") or "", build)
+		):
+			entry["action"] = "unchanged"
+		row["action"] = entry["action"]
+		return row, [{"part": "group", "request": build, "entry": entry, "run": meta, "group": group}]
+
 	def plan_other(self, other):
 		key = (OTHER_PREFIX + other["fixture_type"])[:40]
 		line = self.by_cad_id.get(key)
@@ -647,12 +941,14 @@ class Planner:
 				)
 		return problems
 
-	def removals(self, kept):
-		"""Lines an earlier import made whose run is no longer in the drawing."""
+	def removals(self, kept, grouped=None):
+		"""Lines an earlier import made whose run is no longer in the drawing (or is now in a group)."""
+		grouped = grouped or {}
 		rows = []
 		for line in self.schedule.lines:
 			key = line.get("cad_run_id")
 			if key and key not in kept:
+				group = grouped.get(key[: -len(KIT_SUFFIX)] if key.endswith(KIT_SUFFIX) else key)
 				rows.append(
 					{
 						"id": key,
@@ -660,17 +956,29 @@ class Planner:
 						"fixture_type": line.get("line_id"),
 						"action": "remove",
 						"status": "ok",
-						"messages": [_("This run is no longer in the drawing")],
+						"messages": [
+							_("This run is now part of group {0}").format(group["id"])
+							if group
+							else _("This run is no longer in the drawing")
+						],
 					}
 				)
 		return rows
 
 	def plan(self):
 		rows, saves, others = [], [], []
+		grouped = group_of_run(self.package)
+		runs_by_id = {run["id"]: run for run in self.package["runs"]}
 		for run in self.package["runs"]:
+			if run["id"] in grouped:
+				continue  # Planned with its group below.
 			row, run_saves = self.plan_run(run)
 			rows.append(row)
 			saves.extend(run_saves)
+		for group in self.package.get("groups") or []:
+			row, group_saves = self.plan_group(group, runs_by_id)
+			rows.append(row)
+			saves.extend(group_saves)
 		other_rows = []
 		for other in self.package.get("other_lines") or []:
 			row, data = self.plan_other(other)
@@ -692,10 +1000,16 @@ class Planner:
 					"messages": [text],
 				}
 			)
-		kept = {cad_id(run["id"], part) for run in self.package["runs"] for part, _r in requests_for(run)}
+		kept = {
+			cad_id(run["id"], part)
+			for run in self.package["runs"]
+			if run["id"] not in grouped
+			for part, _r in requests_for(run)
+		}
+		kept |= {group["id"] for group in self.package.get("groups") or []}
 		kept |= {data["cad_run_id"] for data in others}
 		kept |= {control["id"] for control in self.package.get("controls") or []}
-		return rows, other_rows, self.removals(kept), saves, others
+		return rows, other_rows, self.removals(kept, grouped), saves, others
 
 
 def _same_request(stored, request):
@@ -741,9 +1055,11 @@ def site_seed(package, line_keys, import_name=None, controls=None):
 		for end in (wire["from"], wire["to"]):
 			wires[end] = max(wires.get(end, 0), float(wire["path_length_in"]))
 	lines = {}
+	grouped = group_of_run(package)
+	runs_by_id = {run["id"]: run for run in package["runs"]}
 	for run in package["runs"]:
 		key = line_keys.get(run["id"])
-		if not key:
+		if not key or run["id"] in grouped:
 			continue
 		room = rooms.get(run.get("room") or "")
 		entry = {
@@ -755,6 +1071,30 @@ def site_seed(package, line_keys, import_name=None, controls=None):
 		if run["id"] in wires:
 			entry["homeRunLengthFt"] = round(wires[run["id"]] / 12, 2)
 		lines[key] = entry
+	# A group is one line: the designer gives every run of it the group's room, cabinet, feed and home
+	# run (the longest low-voltage path into the group's tag or any of its runs).
+	for group in package.get("groups") or []:
+		key = line_keys.get(group["id"])
+		members = [runs_by_id[run_id] for run_id in group.get("runs") or [] if run_id in runs_by_id]
+		if not key or not members:
+			continue
+		room = rooms.get(group.get("room") or next((r["room"] for r in members if r.get("room")), ""))
+		entry = {
+			"runId": group["id"],
+			"groupRuns": [run["id"] for run in members],
+			"room": room["name"] if room else None,
+			"cabinet": next((run["cabinet"] for run in members if run.get("cabinet")), None),
+			"feedMethod": (members[0].get("feed") or {}).get("method") or "end",
+		}
+		measured = [wires[end] for end in (group["id"], *entry["groupRuns"]) if end in wires]
+		if measured:
+			entry["homeRunLengthFt"] = round(max(measured) / 12, 2)
+		lines[key] = entry
+
+	def line_of(run_id):
+		group = grouped.get(run_id)
+		return line_keys.get(group["id"]) if group else line_keys.get(run_id)
+
 	return {
 		"schema": SITE_SCHEMA,
 		"import": import_name,
@@ -799,7 +1139,8 @@ def site_seed(package, line_keys, import_name=None, controls=None):
 				"name": zone["name"],
 				"method": zone["method"],
 				"control": zone.get("control"),
-				"lines": [line_keys[run] for run in zone.get("runs") or [] if line_keys.get(run)],
+				# Runs of one group share its line, which the zone lists once.
+				"lines": list(dict.fromkeys(line_of(run) for run in zone.get("runs") or [] if line_of(run))),
 			}
 			for zone in package.get("zones") or []
 		],
@@ -970,6 +1311,10 @@ def scale_messages(package, rows, summary):
 		warnings.append(_("The drawing's scale was not calibrated (ILSCALE); check a known dimension"))
 	if unverified:
 		by_run = {run["id"]: run.get("sheet") for run in package.get("runs") or []}
+		for group in package.get("groups") or []:
+			by_run[group["id"]] = group.get("sheet") or next(
+				(by_run.get(run_id) for run_id in group.get("runs") or [] if by_run.get(run_id)), None
+			)
 		for row in rows:
 			sheet = by_run.get(row.get("id"))
 			if sheet in unverified or (sheet is None and summary["status"] == "unverified"):
@@ -1155,8 +1500,14 @@ def server_issues(package):
 
 
 def apply_checks(package, rows, other_rows, issues, saves):
-	"""Errors turn their run or control row into an error (and drop its saves); warnings become messages."""
+	"""Errors turn their run, group or control row into an error (and drop its saves); warnings become
+	messages. An issue on a grouped run is its group's."""
 	by_id = {row["id"]: row for row in rows + other_rows}
+	# An issue on a grouped run belongs to its group's row.
+	for row in rows:
+		if row.get("kind") == "group":
+			for run_id in row.get("runs") or []:
+				by_id.setdefault(run_id, row)
 	failed = set()
 	for issue in issues:
 		row = by_id.get(issue["ref"])
@@ -1166,7 +1517,7 @@ def apply_checks(package, rows, other_rows, issues, saves):
 		if issue["severity"] == "error":
 			row["status"] = "error"
 			row.pop("action", None)
-			failed.add(issue["ref"])
+			failed.add(row["id"])
 	return [save for save in saves if save["run"]["id"] not in failed]
 
 
@@ -1224,6 +1575,7 @@ def preview_drawing_import(schedule, filename, content, choices=None, options=No
 			"source_version": package["source"]["version"],
 			"scale": scale["status"],
 			"runs": len(package["runs"]),
+			"groups": len(package.get("groups") or []),
 			"counts": counts,
 			"blocking": len(blocking),
 		},
@@ -1521,6 +1873,12 @@ def commit_drawing_import(
 		details={
 			"import": record.name,
 			"runs": len(package["runs"]),
+			"groups": len(package.get("groups") or []),
+			"group_members": sum(
+				(row.get("parts") or [{}])[0].get("members") or 0
+				for row in rows
+				if row.get("kind") == "group"
+			),
 			"added": record.runs_added,
 			"updated": record.runs_updated,
 			"source_tool": package["source"]["tool"],
@@ -1552,55 +1910,94 @@ def _configured_link(line):
 	return None, None
 
 
+def _receipt_part(entry, line):
+	doctype, name = _configured_link(line) if line is not None else (None, None)
+	return {
+		"part": entry["part"],
+		"cad_run_id": entry["cad_run_id"],
+		"line_key": line.get("line_key") if line is not None else None,
+		"configured_doctype": doctype,
+		"configured_name": name,
+		"config_hash": frappe.db.get_value(doctype, name, "config_hash") if doctype else None,
+		"part_number": (line.get("group_part_number") or line.get("ill_item_code"))
+		if line is not None
+		else entry.get("part_number"),
+		"qty": entry.get("qty") or 1,
+		"server_length_in": entry.get("server_length_in"),
+		"segments_in": entry.get("segments_in") or [],
+		"runs_in": entry.get("runs_in") or [],
+		"watts": entry.get("watts"),
+	}
+
+
 def receipt_for(doc, package, rows, removals, line_keys, import_name):
-	"""What ILRECEIPT stamps back into the drawing, per run: keys, part numbers, server lengths."""
+	"""What ILRECEIPT stamps back into the drawing, per run: keys, part numbers, server lengths.
+
+	A grouped run points at its group's line and lists its members (a stacked run has one per copy);
+	``groups`` gives each group's line, members and shared supplies.
+	"""
 	by_key = {line.get("line_key"): line for line in doc.lines}
 	runs = []
 	plans = {row["id"]: row for row in rows}
+	grouped = group_of_run(package)
+	parts_of = {}
+	for row in rows:
+		parts_of[row["id"]] = [
+			_receipt_part(entry, by_key.get(line_keys.get(entry["cad_run_id"])))
+			for entry in row.get("parts") or []
+		]
 	for run in package["runs"]:
-		row = plans.get(run["id"]) or {}
-		parts = []
-		for entry in row.get("parts") or []:
-			line = by_key.get(line_keys.get(entry["cad_run_id"]))
-			doctype, name = _configured_link(line) if line is not None else (None, None)
-			config_hash = (
-				frappe.db.get_value(doctype, name, "config_hash")
-				if doctype and doctype != "ilL-Configured-Group"
-				else None
-			)
-			parts.append(
-				{
-					"part": entry["part"],
-					"cad_run_id": entry["cad_run_id"],
-					"line_key": line.get("line_key") if line is not None else None,
-					"configured_doctype": doctype,
-					"configured_name": name,
-					"config_hash": config_hash,
-					"part_number": (line.get("group_part_number") or line.get("ill_item_code"))
-					if line is not None
-					else entry.get("part_number"),
-					"qty": entry.get("qty") or 1,
-					"server_length_in": entry.get("server_length_in"),
-					"segments_in": entry.get("segments_in") or [],
-					"runs_in": entry.get("runs_in") or [],
-					"watts": entry.get("watts"),
-				}
-			)
+		group = grouped.get(run["id"])
+		row = plans.get(group["id"] if group else run["id"]) or {}
+		parts = parts_of.get(row.get("id")) or []
 		build = next((part for part in parts if part["part"] != "kit"), parts[0] if parts else {})
-		runs.append(
+		item = {
+			"id": run["id"],
+			"handle": run["handle"],
+			"fixture_type": run["fixture_type"],
+			"line_key": build.get("line_key"),
+			"configured_doctype": build.get("configured_doctype"),
+			"configured_name": build.get("configured_name"),
+			"config_hash": build.get("config_hash"),
+			"part_number": build.get("part_number"),
+			"server_length_in": build.get("server_length_in"),
+			"drawn_length_in": row.get("drawn_length_in"),
+			"cut_list_in": build.get("runs_in") or build.get("segments_in") or [],
+			"parts": parts,
+		}
+		if group:
+			members = [member for member in row.get("members") or [] if member.get("run") == run["id"]]
+			item.update(
+				group=group["id"],
+				copies=run.get("copies") or 1,
+				drawn_length_in=drawn_length_in(run),
+				server_length_in=members[0].get("server_length_in") if members else None,
+				cut_list_in=[
+					member["server_length_in"] for member in members if member.get("server_length_in")
+				],
+				members=members,
+			)
+		runs.append(item)
+	groups = []
+	for group in package.get("groups") or []:
+		row = plans.get(group["id"]) or {}
+		build = next(iter(parts_of.get(group["id"]) or []), {})
+		groups.append(
 			{
-				"id": run["id"],
-				"handle": run["handle"],
-				"fixture_type": run["fixture_type"],
+				"id": group["id"],
+				"handle": group["handle"],
+				"fixture_type": group["fixture_type"],
+				"runs": list(group.get("runs") or []),
 				"line_key": build.get("line_key"),
 				"configured_doctype": build.get("configured_doctype"),
 				"configured_name": build.get("configured_name"),
 				"config_hash": build.get("config_hash"),
 				"part_number": build.get("part_number"),
-				"server_length_in": build.get("server_length_in"),
-				"drawn_length_in": row.get("drawn_length_in"),
-				"cut_list_in": build.get("runs_in") or build.get("segments_in") or [],
-				"parts": parts,
+				"server_length_in": row.get("server_length_in"),
+				"watts": build.get("watts"),
+				"members": row.get("members") or [],
+				"supplies": row.get("supplies") or [],
+				"include_supplies": row.get("include_supplies", True),
 			}
 		)
 	return {
@@ -1611,6 +2008,7 @@ def receipt_for(doc, package, rows, removals, line_keys, import_name):
 		"modified": str(doc.modified),
 		"drawing": package["drawing"],
 		"runs": runs,
+		"groups": groups,
 		"removed": [row["id"] for row in removals],
 		"other_lines": {key: line_keys.get(key) for key in line_keys if key.startswith(OTHER_PREFIX)},
 		"controls": {
@@ -1628,6 +2026,7 @@ def _store(doc, package, digest, rows, other_rows, removals, line_keys, others=(
 	for name in previous:
 		frappe.db.set_value(DOCTYPE, name, "status", "Superseded", update_modified=False)
 	run_line_keys = {run["id"]: line_keys.get(run["id"]) for run in package["runs"]}
+	run_line_keys.update({group["id"]: line_keys.get(group["id"]) for group in package.get("groups") or []})
 	counts = _counts(rows, other_rows, removals)
 	source = package.get("source") or {}
 	customer = on_behalf_of(doc)

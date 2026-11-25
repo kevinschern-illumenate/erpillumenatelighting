@@ -57,12 +57,18 @@ class DrawingImport(unittest.TestCase):
 		self.problems = {}
 		self.records = []
 		self.counter = 0
+		self.group_saves = []
+		self.group_error = None
+		self.groups_enabled = True
+		self.template_names = {}
 
 		def schedule_context(name, write=False, lock=False):
 			return self.versions[-1] if self.versions and name == self.versions[-1].name else self.schedule
 
 		def calculate(family, selections, product_slug=None, template=None, segments=None):
 			self.calls.append({"family": family, "template": template, "selections": selections, "segments": segments})
+			if selections.get("group_request"):
+				return self._group_preview(family, template, selections["group_request"])
 			if family == "Linear Fixture":
 				total = sum(item["requested_length_mm"] for item in selections["segments"])
 				return {
@@ -116,6 +122,24 @@ class DrawingImport(unittest.TestCase):
 				self.counter += 1
 				line = doc.append("lines", {"line_key": f"LK{self.counter}"})
 			request = {"family": family, "template": template, "selections": selections, "segments": json.loads(segments) if isinstance(segments, str) else segments}
+			if selections.get("group_request"):
+				self.group_saves.append(selections["group_request"])
+				line.update(
+					line_id=metadata["line_id"],
+					location=metadata["location"],
+					qty=metadata["qty"],
+					manufacturer_type="ILLUMENATE",
+					configured_group=f"GRP-{line['line_key']}",
+					configured_tape_neon=None,
+					group_part_number=f"GPN-{line['line_key']}",
+					ill_item_code=f"GPN-{line['line_key']}",
+					ill_configurator_request=json.dumps(request),
+				)
+				doc.lines[:] = [item for item in doc.lines if item.get("power_supply_for_line") != line["line_key"]]
+				if selections["group_request"]["power"]["include_power_supply"]:
+					doc.append("lines", {"line_key": f"PS-{line['line_key']}", "power_supply_for_line": line["line_key"], "manufacturer_type": "ACCESSORY"})
+				doc.save()
+				return {"success": True, "line_key": line["line_key"], "modified": doc.modified}
 			line.update(
 				line_id=metadata["line_id"],
 				location=metadata["location"],
@@ -163,7 +187,12 @@ class DrawingImport(unittest.TestCase):
 
 		self.extras = {
 			ROOT + ".api.build_artifacts": types.SimpleNamespace(atomic_build=lambda function: function),
-			ROOT + ".portal.configuration": types.SimpleNamespace(schedule_context=schedule_context, calculate=calculate, save=save),
+			ROOT + ".portal.configuration": types.SimpleNamespace(
+				schedule_context=schedule_context,
+				calculate=calculate,
+				save=save,
+				family_for_template=lambda family, template: family,
+			),
 			ROOT + ".portal.kit_configuration": types.SimpleNamespace(save=kit_save),
 			ROOT + ".api.extrusion_kit_configurator": types.SimpleNamespace(
 				validate_kit_configuration=lambda selections: {"is_valid": True, "part_number": "KIT-" + selections["kit_template"]}
@@ -171,6 +200,7 @@ class DrawingImport(unittest.TestCase):
 			ROOT + ".portal.presets": types.SimpleNamespace(
 				FAMILY_DOCTYPES={"LED Tape": 1, "COB Tape": 1, "LED Neon": 1, "Linear Fixture": 1, "Extrusion Kit": 1},
 				template_problem=template_problem,
+				_template_name=lambda family, template: self.template_names.get(template, template),
 			),
 			ROOT + ".system_design.cad_access": types.SimpleNamespace(enabled_for=lambda user=None: self.enabled),
 			ROOT + ".portal.staff": types.SimpleNamespace(allowed=lambda role: False),
@@ -189,7 +219,9 @@ class DrawingImport(unittest.TestCase):
 				controller_category=lambda kind, dimming=None: {"DMX Decoder": "dmx-decoder", "DMX Controller": "dmx-controller"}.get(kind)
 			),
 			ROOT + ".portal.access": types.SimpleNamespace(get_actor=lambda user=None: self.actor),
-			ROOT + ".portal.site_flags": types.SimpleNamespace(cad_min_versions=lambda: self.min_versions),
+			ROOT + ".portal.site_flags": types.SimpleNamespace(
+				cad_min_versions=lambda: self.min_versions, fixture_groups_enabled=lambda: self.groups_enabled
+			),
 			ROOT + ".system_design.cad_catalog": types.SimpleNamespace(
 				cad_catalog=lambda user=None: self.catalog,
 				TAPE_OPTIONS={"Finish": ("finish", "finish", "Finish")},
@@ -200,6 +232,40 @@ class DrawingImport(unittest.TestCase):
 		self.actor = types.SimpleNamespace(is_internal=False, customer="Dealer Co")
 		self.min_versions = {}
 		self.record_doc = record_doc
+
+	def _group_preview(self, family, template, request):
+		"""Shaped like ``fixture_group_configurator.preview``: members in the dealer's order, a power plan."""
+		if self.group_error:
+			return {"success": False, "is_valid": False, "error": self.group_error}
+		runs, presentation = [], []
+		for index, member in enumerate(request["members"], 1):
+			total = sum(item["requested_length_mm"] for item in member["input"]["segments"])
+			presentation.append({"member_key": f"M{index}", "label": member["label"], "member_id": member["member_id"]})
+			runs.append(
+				{
+					"member_key": f"M{index}",
+					"label": member["label"],
+					"circuits": 1,
+					"watts": 10.5,
+					"segments": len(member["input"]["segments"]),
+					"requested_length_mm": total,
+					"leader_length_mm": 0,
+					"manufactured_length_mm": total - 25.4,
+				}
+			)
+		include = request["power"]["include_power_supply"]
+		drivers = [{"driver_item": "PSU-96W", "qty": 1}] if include else []
+		return {
+			"success": True,
+			"is_valid": True,
+			"build": {"power_plan": {"status": "selected" if include else "excluded", "drivers": drivers}},
+			"presentation": presentation,
+			"runs": runs,
+			"input_hash": "group-input",
+			"config_hash": "group-config",
+			"pricing": {"msrp_unit": 1234.5, "breakdown": []},
+			"messages": [],
+		}
 
 	def _bump(self, *args, **kwargs):
 		doc = self.versions[-1] if self.versions else self.schedule
@@ -689,6 +755,178 @@ class DrawingImport(unittest.TestCase):
 		self.assertEqual(self.preview(value)["rows"][0]["status"], "ok")
 
 
+
+	# --- Multi-run groups ----------------------------------------------------------------------
+
+	def group_row(self, result, group_id="G-01"):
+		return next(row for row in result["rows"] if row["id"] == group_id)
+
+	def test_stacked_run_previews_as_one_group_row_without_prices(self):
+		result = self.preview(package("group-stack.json"))
+		self.assertTrue(result["success"])
+		self.assertEqual([row["id"] for row in result["rows"]], ["G-01"])
+		row = self.group_row(result)
+		self.assertEqual((row["status"], row["kind"], row["action"]), ("ok", "group", "add"))
+		self.assertEqual([member["label"] for member in row["members"]], ["Shelf 1", "Shelf 2", "Shelf 3", "Shelf 4"])
+		self.assertEqual({member["run"] for member in row["members"]}, {"T1-01"})
+		self.assertEqual(row["members"][0]["drawn_length_in"], 96)
+		self.assertEqual(row["members"][0]["server_length_in"], 95)
+		self.assertEqual(row["drawn_length_in"], 384)
+		self.assertEqual(row["supplies"], [{"item_code": "PSU-96W", "qty": 1}])
+		self.assertIn("Not used by a group: feed_type", row["messages"])
+		self.assertNotIn("msrp", json.dumps(result))
+		self.assertNotIn("1234.5", json.dumps(result))
+		self.assertEqual(result["counts"]["ok"], 1)
+		request = self.calls[-1]["selections"]["group_request"]
+		self.assertEqual(request["family"], "LED Tape")
+		self.assertEqual(request["shared"], {"environment_rating": "Dry", "cct": "2700K", "output_level": "300 lm/ft"})
+		self.assertEqual(
+			request["power"],
+			{
+				"include_power_supply": True,
+				"dimming_protocol_code": None,
+				"override_max_run_ft": None,
+				"separate_supply_line": True,
+				"power_allocation": "grouped",
+			},
+		)
+		self.assertEqual(len(request["members"]), 4)
+		segment = request["members"][0]["input"]["segments"][0]
+		self.assertEqual(segment["requested_length_mm"], 2438.4)
+		self.assertNotIn("tape_length_value", segment)
+		self.assertEqual(request["members"][2]["member_id"], "T1-01#3")
+		# The first run alone was checked first, with the group's power choice.
+		probe = self.calls[-2]
+		self.assertEqual(probe["selections"]["include_power_supply"], True)
+
+	def test_commit_saves_one_group_line_with_its_supply_and_a_receipt(self):
+		result = self.commit(package("group-stack.json"))
+		self.assertTrue(result["success"], result)
+		self.assertEqual(len(self.saves), 1)
+		self.assertEqual(self.saves[0]["metadata"], {"line_id": "T1", "location": "", "qty": 1})
+		group_line = next(line for line in self.schedule.lines if line.get("cad_run_id") == "G-01")
+		self.assertEqual(group_line["configured_group"], "GRP-" + group_line["line_key"])
+		supply = [line for line in self.schedule.lines if line.get("power_supply_for_line") == group_line["line_key"]]
+		self.assertEqual(len(supply), 1)
+		receipt = result["receipt"]
+		group = receipt["groups"][0]
+		self.assertEqual((group["id"], group["line_key"]), ("G-01", group_line["line_key"]))
+		self.assertEqual(group["configured_doctype"], "ilL-Configured-Group")
+		self.assertEqual(group["config_hash"], "cfg-GRP-" + group_line["line_key"])
+		self.assertEqual(group["part_number"], "GPN-" + group_line["line_key"])
+		self.assertEqual(len(group["members"]), 4)
+		self.assertEqual(group["supplies"], [{"item_code": "PSU-96W", "qty": 1}])
+		run = receipt["runs"][0]
+		self.assertEqual((run["id"], run["group"], run["copies"]), ("T1-01", "G-01", 4))
+		self.assertEqual(run["line_key"], group_line["line_key"])
+		self.assertEqual(run["cut_list_in"], [95, 95, 95, 95])
+		record = self.records[-1]
+		self.assertEqual(record["runs_added"], 1)
+		site = json.loads(record["site_json"])
+		entry = site["lines"][group_line["line_key"]]
+		self.assertEqual(entry["groupRuns"], ["T1-01"])
+		self.assertEqual((entry["room"], entry["homeRunLengthFt"]), ("Pantry", 20))
+		self.assertEqual(set(site["lines"]), {group_line["line_key"]})
+
+	def test_unchanged_group_is_skipped_and_a_new_count_updates_the_same_line(self):
+		self.commit(package("group-stack.json"))
+		key = next(line["line_key"] for line in self.schedule.lines if line.get("cad_run_id") == "G-01")
+		self.saves.clear()
+		result = self.preview(package("group-stack.json"))
+		self.assertEqual(self.group_row(result)["action"], "unchanged")
+		self.commit(package("group-stack.json"))
+		self.assertEqual(self.saves, [])
+		value = package("group-stack.json")
+		value["runs"][0]["copies"] = 5
+		result = self.commit(value)
+		self.assertTrue(result["success"], result)
+		self.assertEqual([save["line_key"] for save in self.saves], [key])
+		self.assertEqual(len(self.group_saves[-1]["members"]), 5)
+		lines = [line for line in self.schedule.lines if line.get("power_supply_for_line") == key]
+		self.assertEqual(len(lines), 1)
+
+	def test_gathered_runs_exclude_power_and_other_runs_stay_single_lines(self):
+		result = self.preview(package("group-gather.json"))
+		self.assertEqual([row["id"] for row in result["rows"]], ["T1-04", "G-01"])
+		row = self.group_row(result)
+		self.assertEqual([member["label"] for member in row["members"]], ["T1-01", "T1-02", "T1-03"])
+		self.assertEqual(row["supplies"], [])
+		request = self.calls[-1]["selections"]["group_request"]
+		self.assertEqual(request["power"], {"include_power_supply": False, "dimming_protocol_code": None, "override_max_run_ft": None})
+		result = self.commit(package("group-gather.json"))
+		self.assertTrue(result["success"], result)
+		self.assertEqual(
+			sorted(line["cad_run_id"] for line in self.schedule.lines if line.get("cad_run_id")), ["G-01", "T1-04"]
+		)
+		key = next(line["line_key"] for line in self.schedule.lines if line.get("cad_run_id") == "G-01")
+		self.assertFalse(any(line.get("power_supply_for_line") == key for line in self.schedule.lines))
+
+	def test_group_problems_are_error_rows_that_refuse_the_commit(self):
+		value = package("group-gather.json")
+		value["runs"][1]["style"]["selections"]["cct"] = "3000K"
+		value["runs"][2]["fixture_type"] = "T2"
+		row = self.group_row(self.preview(value))
+		self.assertEqual(row["status"], "error")
+		self.assertIn("Runs in a group need one style; apply one with ILSTYLE", row["messages"])
+		self.assertIn("Runs of Type T2 in a group of Type T1", row["messages"])
+		self.assertFalse(self.commit(value)["success"])
+		kit = package("group-gather.json")
+		for run in kit["runs"]:
+			run["style"] = {"family": "Extrusion Kit", "template": "KIT-1", "selections": {}, "tape": {"family": "LED Tape", "template": "led-hd-sw", "selections": {}}}
+		self.assertIn("Extrusion Kit runs cannot be grouped", self.group_row(self.preview(kit))["messages"])
+
+	def test_groups_off_or_configurator_refusal_is_an_error_row(self):
+		self.groups_enabled = False
+		row = self.group_row(self.preview(package("group-stack.json")))
+		self.assertEqual(row["status"], "error")
+		self.assertIn("Multi-run groups are not enabled for this site", row["messages"])
+		self.groups_enabled = True
+		self.group_error = "Shelf 2: no compatible supply"
+		row = self.group_row(self.preview(package("group-stack.json")))
+		self.assertEqual((row["status"], row["messages"][-1]), ("error", "Shelf 2: no compatible supply"))
+
+	def test_open_option_is_asked_once_for_the_whole_group(self):
+		self.missing["led-hd-sw"] = ["finish"]
+		result = self.preview(package("group-gather.json"))
+		row = self.group_row(result)
+		self.assertEqual(row["status"], "needs_choice")
+		group = next(item for item in result["choice_groups"] if "G-01" in item["runs"])
+		self.assertEqual(group["keys"][0]["key"], "finish")
+		result = self.preview(package("group-gather.json"), choices=json.dumps({"G-01": {"finish": "White"}}))
+		self.assertEqual(self.group_row(result)["status"], "ok")
+		self.assertEqual(self.calls[-1]["selections"]["group_request"]["shared"]["finish"], "White")
+
+	def test_a_run_moved_into_a_group_is_a_confirmed_removal(self):
+		value = package("group-gather.json")
+		single = {**value, "groups": []}
+		self.assertTrue(self.commit(single)["success"])
+		result = self.commit(value)
+		self.assertTrue(result["confirm_removals_required"])
+		removals = {row["id"]: row["messages"][0] for row in result["removals"]}
+		self.assertEqual(set(removals), {"T1-01", "T1-02", "T1-03"})
+		self.assertEqual(removals["T1-01"], "This run is now part of group G-01")
+		result = self.commit(value, confirm_removals="1")
+		self.assertTrue(result["success"], result)
+		self.assertEqual(
+			sorted(line["cad_run_id"] for line in self.schedule.lines if line.get("cad_run_id")), ["G-01", "T1-04"]
+		)
+
+	def test_a_tape_template_code_resolves_to_its_document_name(self):
+		self.template_names["led-hd-sw"] = "LED-HD-SW-TEMPLATE"
+		self.preview(package("group-stack.json"))
+		request = self.calls[-1]
+		self.assertEqual(request["template"], "LED-HD-SW-TEMPLATE")
+		self.assertEqual(request["selections"]["group_request"]["template"], "LED-HD-SW-TEMPLATE")
+
+	def test_server_issues_on_a_grouped_run_fail_its_group(self):
+		with self.module() as module:
+			rows = [{"id": "G-01", "kind": "group", "runs": ["T1-01"], "status": "ok", "action": "add", "messages": []}]
+			saves = [{"run": {"id": "G-01"}}]
+			issues = [{"code": "BEND_RADIUS", "ref": "T1-01", "severity": "error", "text": "Too tight"}]
+			self.assertEqual(module.apply_checks({}, rows, [], issues, saves), [])
+			self.assertEqual((rows[0]["status"], rows[0]["messages"]), ("error", ["Too tight"]))
+
+
 class PureHelpers(unittest.TestCase):
 	def setUp(self):
 		self.context = load_service(ROOT + ".portal.drawing_import")
@@ -738,6 +976,36 @@ class PureHelpers(unittest.TestCase):
 		self.assertEqual(seed["lines"]["K1"]["homeRunLengthFt"], 11.46)
 		self.assertEqual(seed["rooms"][2], {"id": "Z-Bath", "name": "Primary Bath", "level": "L2", "envChoice": "damp"})
 		self.assertEqual(set(seed["lines"]), {"K1"})
+
+	def test_site_seed_gives_a_group_one_line_and_zones_list_it_once(self):
+		value = package("group-gather.json")
+		value["wire_paths"] = [
+			{"id": "W-1", "from": "PS-01", "to": "T1-02", "kind": "lv", "path_length_in": 120},
+			{"id": "W-2", "from": "PS-01", "to": "G-01", "kind": "lv", "path_length_in": 60},
+		]
+		value["zones"] = [{"id": "ZN-1", "name": "Z", "method": "none", "runs": ["T1-01", "T1-02", "T1-04"]}]
+		seed = self.module.site_seed(value, {"G-01": "KG", "T1-04": "K4"}, "CADI-1")
+		self.assertEqual(set(seed["lines"]), {"KG", "K4"})
+		self.assertEqual(seed["lines"]["KG"]["groupRuns"], ["T1-01", "T1-02", "T1-03"])
+		self.assertEqual((seed["lines"]["KG"]["runId"], seed["lines"]["KG"]["homeRunLengthFt"]), ("G-01", 10))
+		self.assertEqual(seed["zones"][0]["lines"], ["KG", "K4"])
+
+	def test_group_member_segments_are_millimetres_for_every_family(self):
+		run = package("group-stack.json")["runs"][0]
+		tape = self.module.group_member_segments(run, run["style"], "LED Neon")
+		self.assertEqual(tape, [{"requested_length_mm": 2438.4, "end_type": "Endcap"}])
+		linear = self.module.group_member_segments(run, run["style"], "Linear Fixture")
+		self.assertEqual(linear[0]["requested_length_mm"], 2438)
+
+	def test_group_members_number_stacked_copies(self):
+		value = package("group-gather.json")
+		value["runs"][0].update(copies=2, label="Shelf")
+		runs = {run["id"]: run for run in value["runs"]}
+		members = self.module.group_members(value["groups"][0], runs)
+		self.assertEqual(
+			[(label, member_id) for _run, _copy, label, member_id in members],
+			[("Shelf 1", "T1-01#1"), ("Shelf 2", "T1-01#2"), ("T1-02", "T1-02#1"), ("T1-03", "T1-03#1")],
+		)
 
 
 if __name__ == "__main__":
