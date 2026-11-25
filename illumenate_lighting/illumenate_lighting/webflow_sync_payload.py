@@ -12,6 +12,8 @@ for a product without a linked template.
 
 import frappe
 
+from illumenate_lighting.illumenate_lighting.spec_sheet_route import current_link
+
 CONFIGURATOR_KEYS = ("option_step", "option_label", "is_required", "depends_on_step", "allowed_values_json")
 KIT_KEYS = ("component_type", "component_item", "component_image", "component_description")
 
@@ -93,7 +95,7 @@ def template_section(product, include_configurator=True):
 		"display_name": template.get("display_name") or template.get("template_name") or name,
 		"sublabel": template.get("sublabel") or "",
 		"dimensions_image": template.get("dimensions_image") or None,
-		"spec_sheet_public_url": template.get("spec_sheet_public_url") or None,
+		"spec_sheet_public_url": current_link(template.get("spec_sheet_public_url")) or None,
 		"series_name": (frappe.db.get_value("ilL-Attribute-Series", series, "series_name") or series)
 		if series
 		else "",
