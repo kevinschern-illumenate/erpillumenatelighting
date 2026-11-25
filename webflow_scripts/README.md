@@ -22,13 +22,25 @@ The scripts read CMS data from hidden elements (the ids are listed at the top of
 `staging.user.js`). On the main site they come from Code Embeds; on staging (no Site plan) they
 must be Designer text elements bound to the same CMS field with the same id, hidden.
 
-After editing any `.html` file here, rebuild: `python3 webflow_scripts/build_userscript.py`.
+After editing any `.html` file here, rebuild both userscripts: `python3 webflow_scripts/build_userscript.py`.
 
 The staging site kept the main site's Code Embeds when it was duplicated, and they still run
 (with the old code). `staging.user.js` lets its own copies register first and then ignores the
 old copies' DOMContentLoaded listeners and Finsweet callbacks, so each script runs once. It relies
 on the page's own Finsweet and Swiper (no @require). `window.__illStaging.ignored` in the console
 shows how many old registrations were ignored.
+
+## Previewing on production with Tampermonkey
+
+`production.user.js` (same build) runs these scripts on `illumenate.lighting/products/*` in your
+browser only, so the repo versions can be checked against production data before they are pasted
+into Webflow. It ignores the page's own copies the same way the staging script does, so each script
+runs once. Visitors are not affected. Turn it off once the page's custom code and Code Embeds hold
+the repo versions.
+
+The production page's footer custom code is `products-collection-before-body.html` (as of
+2026-11-24 production still has the copy from before the `related_product` / `relationship_type`
+change; paste the repo file over it, then publish).
 
 ## Configured spec sheet
 

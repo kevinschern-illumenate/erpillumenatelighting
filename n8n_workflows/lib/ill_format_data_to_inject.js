@@ -573,34 +573,42 @@ const mappingScript = `<script>
       }
 
       // --- E3. EXTRA DIMENSION IMAGES (Spec Gallery, section "Dimensions") ---
-      // The first .dimension-item keeps dimensions_image (#spec-dims-img). #dimension-item is the
-      // pattern for the extra ones: copied once per Dimensions row (title in #dimension-title,
-      // hidden when empty; image in #spec-dims-img-other), then hidden. No rows: stays hidden.
-      const dimTemplate = document.getElementById('dimension-item');
-      if (dimTemplate) {
+      // The first .dimension-item keeps dimensions_image (#spec-dims-img). #dimension-item
+      // (.dimension-item.other, a vertical flex) takes every extra drawing: per title, a copy of
+      // #dimension-title, then one #spec-dims-img-other copy per drawing; a row without a title
+      // goes under the title before it (owner, 2026-11-25: one item per drawing, then per title,
+      // sat side by side in the list wrapper's wrapping row). No rows: the item stays hidden.
+      const dimItem = document.getElementById('dimension-item');
+      if (dimItem) {
           const rows = (Array.isArray(data.spec_gallery) ? data.spec_gallery : [])
               .filter(row => row.section === 'Dimensions' && row.image);
-          let anchor = dimTemplate;
-          rows.forEach(row => {
-              const item = dimTemplate.cloneNode(true);
-              item.style.display = '';
-              item.removeAttribute('id');
-              const titleEl = item.querySelector('#dimension-title');
-              if (titleEl) {
-                  titleEl.removeAttribute('id');
-                  if (row.title) { titleEl.innerText = row.title; } else { titleEl.style.display = 'none'; }
-              }
-              const imgEl = item.querySelector('#spec-dims-img-other');
-              if (imgEl) {
+          const titlePattern = dimItem.querySelector('#dimension-title');
+          const imgPattern = dimItem.querySelector('#spec-dims-img-other');
+          if (!rows.length || !imgPattern) {
+              dimItem.style.display = 'none';
+          } else {
+              let lastTitle = null;
+              rows.forEach(row => {
+                  const title = String(row.title || '').trim();
+                  if (title && title !== lastTitle && titlePattern) {
+                      const titleEl = titlePattern.cloneNode(true);
+                      titleEl.removeAttribute('id');
+                      titleEl.innerText = title;
+                      dimItem.insertBefore(titleEl, titlePattern);
+                  }
+                  if (title) lastTitle = title;
+                  const imgEl = imgPattern.cloneNode(false);
                   imgEl.removeAttribute('id');
                   imgEl.src = row.image;
                   imgEl.removeAttribute('srcset');
                   imgEl.removeAttribute('loading');
-              }
-              anchor.parentNode.insertBefore(item, anchor.nextSibling);
-              anchor = item;
-          });
-          dimTemplate.style.display = 'none';
+                  dimItem.insertBefore(imgEl, titlePattern || imgPattern);
+              });
+              if (titlePattern) titlePattern.remove();
+              imgPattern.remove();
+              dimItem.removeAttribute('id');
+              dimItem.style.display = '';
+          }
       }
 
       // --- E3b. ACCESSORIES DIMENSIONS (Spec Gallery, section "Accessories Dimensions") ---

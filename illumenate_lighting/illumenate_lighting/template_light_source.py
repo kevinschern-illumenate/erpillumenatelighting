@@ -5,7 +5,8 @@ LED tape it uses: the Template Name of the Tape/Neon template whose allowed tape
 tape specs of the fixture's allowed tape offerings (for ILL-SH01-SW, "High Density Static White
 LED Tape"). When several Tape/Neon templates hold them, the ones for the fixture's own target
 brand are used; the same name is listed once. The name goes in the row's Description (and
-Webflow Title) and that template's Hero Image in Component Image; the row has no Component Item. Rows typed by hand keep their order after it.
+Webflow Title) and that template's Hero Image in Component Image, with Image From linking that
+template (owner, 2026-11-25); the row has no Component Item. Rows typed by hand keep their order after it.
 """
 
 import frappe
@@ -25,11 +26,11 @@ def _brands(template):
 
 def names(template):
 	"""The Light Source names for ``template``, sorted."""
-	return [name for name, _image in light_sources(template)]
+	return [name for name, _image, _source in light_sources(template)]
 
 
 def light_sources(template):
-	"""[(name, hero image)] for ``template``'s Light Source rows, sorted by name."""
+	"""[(name, hero image, Tape/Neon template)] for ``template``'s Light Source rows, by name."""
 	offerings = [
 		row.get("tape_offering")
 		for row in template.get("allowed_tape_offerings") or []
@@ -79,20 +80,21 @@ def light_sources(template):
 
 
 def sources(parents):
-	"""[(name, hero image)] for the Tape/Neon templates ``parents``, one per name, sorted; the
-	image is the first Hero Image among the templates with that name."""
+	"""[(name, hero image, template)] for the Tape/Neon templates ``parents``, one per name,
+	sorted; the image is the first Hero Image among the templates with that name, and the
+	template is the one it comes from (the first one when none has an image)."""
 	rows = frappe.get_all(
 		"ilL-Tape-Neon-Template",
 		filters={"name": ["in", parents]},
 		fields=["name", "template_name", "hero_image"],
 		order_by="name asc",
 	)
-	images = {}
+	found = {}
 	for row in rows:
 		name = (row.get("template_name") or row.get("name")).strip()
-		if not images.get(name):
-			images[name] = row.get("hero_image") or None
-	return sorted(images.items())
+		if name not in found or (not found[name][0] and row.get("hero_image")):
+			found[name] = (row.get("hero_image") or None, row.get("name"))
+	return sorted((name, image, source) for name, (image, source) in found.items())
 
 
 def refresh(template):
@@ -108,8 +110,10 @@ def refresh(template):
 			"webflow_title": name,
 			# The tape's own picture (owner, 2026-11-18): its Tape/Neon template's Hero Image.
 			"component_image": image,
+			"image_source_doctype": "ilL-Tape-Neon-Template" if source else None,
+			"image_source": source,
 		}
-		for name, image in light_sources(template)
+		for name, image, source in light_sources(template)
 	]
 	template.set(FIELD, rows + others)
 	for idx, row in enumerate(template.get(FIELD) or [], 1):

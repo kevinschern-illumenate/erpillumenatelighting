@@ -100,8 +100,11 @@ class LightSource(unittest.TestCase):
 			],
 		)
 		self.assertEqual(rows[0].webflow_title, "High Density Static White LED Tape")
-		# The tape template's Hero Image is the Light Source picture.
+		# The tape template's Hero Image is the Light Source picture, linked from the row.
 		self.assertEqual(rows[0].component_image, "/files/led-hd-sw.jpg")
+		self.assertEqual(
+			(rows[0].image_source_doctype, rows[0].image_source), ("ilL-Tape-Neon-Template", "led-hd-sw")
+		)
 
 	def test_no_offerings_no_light_source(self):
 		module = self.module()
