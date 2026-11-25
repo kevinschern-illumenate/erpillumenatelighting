@@ -772,7 +772,9 @@ const mappingScript = `<script>
           ['fs', 'sw', 'tw', 'dw', 'cc'].forEach(key => {
               // Ids may repeat (the neon page's footer cc line shares its id with the header one).
               document.querySelectorAll('[id="' + key + '-gradient-line"], [id="' + key + 'footer-gradient-line"]').forEach(line => {
-                  line.style.display = shownGradients.has(key) ? '' : 'none';
+                  // display:block, not '': the page's CSS hides every line but sw by default
+                  // (owner, 2026-11-25: Tunable White and RGB+TW sheets printed without a line).
+                  line.style.display = shownGradients.has(key) ? 'block' : 'none';
               });
           });
       }
