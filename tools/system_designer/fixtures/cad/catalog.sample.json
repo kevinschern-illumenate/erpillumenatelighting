@@ -91,6 +91,209 @@
   {
    "code": "ILL-RA01-SW",
    "family": "Linear Fixture",
+   "linear": {
+    "ccts": [
+     {
+      "label": "2700K Warm",
+      "value": "2700K"
+     },
+     {
+      "label": "3000K",
+      "value": "3000K"
+     }
+    ],
+    "combos": [
+     {
+      "cct": "2700K",
+      "environment": "Dry",
+      "led_package": "SW-2835",
+      "lens": "Frosted",
+      "outputs": [
+       250,
+       500
+      ]
+     },
+     {
+      "cct": "2700K",
+      "environment": "Dry",
+      "led_package": "SW-2835",
+      "lens": "White",
+      "outputs": [
+       150,
+       350
+      ]
+     },
+     {
+      "cct": "3000K",
+      "environment": "Wet",
+      "led_package": "SW-2835",
+      "lens": "Frosted",
+      "outputs": [
+       250
+      ]
+     },
+     {
+      "cct": "3000K",
+      "environment": "Wet",
+      "led_package": "SW-2835",
+      "lens": "White",
+      "outputs": [
+       150
+      ]
+     },
+     {
+      "cct": "2700K",
+      "environment": "Dry",
+      "led_package": "TW-2835",
+      "lens": "Frosted",
+      "outputs": [
+       350
+      ]
+     },
+     {
+      "cct": "2700K",
+      "environment": "Dry",
+      "led_package": "TW-2835",
+      "lens": "White",
+      "outputs": [
+       200
+      ]
+     },
+     {
+      "cct": "3000K",
+      "environment": "Dry",
+      "led_package": "TW-2835",
+      "lens": "Frosted",
+      "outputs": [
+       350
+      ]
+     },
+     {
+      "cct": "3000K",
+      "environment": "Dry",
+      "led_package": "TW-2835",
+      "lens": "White",
+      "outputs": [
+       200
+      ]
+     },
+     {
+      "cct": "2700K",
+      "environment": "Wet",
+      "led_package": "TW-2835",
+      "lens": "Frosted",
+      "outputs": [
+       350
+      ]
+     },
+     {
+      "cct": "2700K",
+      "environment": "Wet",
+      "led_package": "TW-2835",
+      "lens": "White",
+      "outputs": [
+       200
+      ]
+     },
+     {
+      "cct": "3000K",
+      "environment": "Wet",
+      "led_package": "TW-2835",
+      "lens": "Frosted",
+      "outputs": [
+       350
+      ]
+     },
+     {
+      "cct": "3000K",
+      "environment": "Wet",
+      "led_package": "TW-2835",
+      "lens": "White",
+      "outputs": [
+       200
+      ]
+     }
+    ],
+    "defaults": {
+     "environment": "Dry",
+     "feed_type": "Wire Leads",
+     "finish": "BK",
+     "lens": "Frosted",
+     "mounting": "Surface"
+    },
+    "environments": [
+     {
+      "label": "Dry Location",
+      "value": "Dry"
+     },
+     {
+      "label": "Wet Location",
+      "value": "Wet"
+     }
+    ],
+    "feed_directions": [
+     {
+      "label": "Back",
+      "value": "Back"
+     },
+     {
+      "label": "End",
+      "value": "End"
+     }
+    ],
+    "feed_types": [
+     {
+      "label": "Wire Leads",
+      "value": "Wire Leads"
+     },
+     {
+      "label": "Connector",
+      "value": "Connector"
+     }
+    ],
+    "finishes": [
+     {
+      "label": "Black",
+      "value": "BK"
+     },
+     {
+      "label": "White",
+      "value": "WH"
+     }
+    ],
+    "led_packages": [
+     {
+      "label": "SW-2835",
+      "value": "SW-2835"
+     },
+     {
+      "label": "TW-2835",
+      "value": "TW-2835"
+     }
+    ],
+    "lenses": [
+     {
+      "label": "Frosted",
+      "transmission_pct": 90.0,
+      "value": "Frosted"
+     },
+     {
+      "label": "White",
+      "transmission_pct": 56.0,
+      "value": "White"
+     }
+    ],
+    "mountings": [
+     {
+      "label": "Surface",
+      "value": "Surface"
+     },
+     {
+      "label": "Recessed",
+      "value": "Recessed"
+     }
+    ]
+   },
    "max_assembled_in": 98.4252,
    "name": "Rainier [SF] Static White",
    "profile": "CH-RA01-BK",
@@ -99,7 +302,7 @@
   }
  ],
  "generated_at": "2026-11-20 09:00:00",
- "hash": "df12baf1a8f53bb5c6e7dcef43a255725295a60cd8f2bd46ea88ebeb2b189f57",
+ "hash": "64d217cf411710cec78697ff046efd11fe6bae3a00c978aca8f74a72da9677fa",
  "kit_templates": [
   {
    "code": "KIT-AZ01",

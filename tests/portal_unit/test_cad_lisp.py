@@ -1277,6 +1277,92 @@ class Model(unittest.TestCase):
 		self.assertNotIn("line_key", other)
 		self.assertIsNone(self.lisp.call("il-receipt-groups", from_python_json({"schema": "other"})))
 
+	def linear(self):
+		template = self.lisp.call("il-cat-template", self.catalog, "Linear Fixture", "ILL-RA01-SW")
+		return template, self.lisp.call("il-j", template, "linear")
+
+	def test_linear_cascade_narrows_like_the_configurator(self):
+		_template, linear = self.linear()
+
+		def values(entries):
+			return [to_python_json(entry)["value"] for entry in entries or []]
+
+		choices = lambda *args: values(self.lisp.call("il-linear-choices", linear, *args))  # noqa: E731
+		self.assertEqual(choices("led_packages", "led_package", None, None, None), ["SW-2835", "TW-2835"])
+		self.assertEqual(choices("environments", "environment", "SW-2835", None, None), ["Dry", "Wet"])
+		self.assertEqual(choices("ccts", "cct", "SW-2835", "Wet", None), ["3000K"])
+		self.assertEqual(choices("ccts", "cct", "TW-2835", "Wet", None), ["2700K", "3000K"])
+		outputs = [
+			to_python_json(entry)
+			for entry in self.lisp.call("il-linear-outputs", linear, "SW-2835", "Dry", "2700K", "White")
+		]
+		self.assertEqual(
+			outputs, [{"value": 150, "label": "150 lm/ft"}, {"value": 350, "label": "350 lm/ft"}]
+		)
+		self.assertIsNone(self.lisp.call("il-linear-outputs", linear, "SW-2835", "Wet", "2700K", "White"))
+		lens = to_python_json(
+			self.lisp.call(
+				"il-linear-lens-entry",
+				from_python_json({"value": "White", "label": "White", "transmission_pct": 56.0}),
+			)
+		)
+		self.assertEqual(lens["label"], "White (56% transmission)")
+
+	def test_a_linear_style_imports_with_the_portal_configurator_keys(self):
+		template, _linear = self.linear()
+		choices = to_alist(
+			{
+				"package": "SW-2835",
+				"environment": "Dry",
+				"cct": "2700K",
+				"lens": "White",
+				"output": 350,
+				"mounting": "Surface",
+				"finish": "BK",
+				"feed_type": "Wire Leads",
+				"feed_direction": "End",
+			}
+		)
+		self.assertEqual(
+			self.lisp.call("il-linear-style-name", template, choices), "ILL-RA01-SW 2700K 350lm White"
+		)
+		style = self.lisp.call("il-linear-style", template, choices, "Shelf light")
+		values = alist(self.model)
+		values["styles"] = lst([*values["styles"], style])
+		values["runs"] = lst([run("F1-01", [[0, 0, 0], [96, 0, 0]], "custom:Shelf light", fixture_type="F1")])
+		values["psus"] = lst([])
+		values["wires"] = lst([])
+		values["overrides"] = lst([])
+		package = self.package(to_alist(values))
+		with load_service(ROOT + ".system_design.ilq_schema") as (module, _frappe):
+			self.assertEqual(module.validate_package(package), [])
+			package = module.with_defaults(package)
+		self.assertEqual(package["runs"][0]["style"]["family"], "Linear Fixture")
+		with load_service(ROOT + ".portal.drawing_import") as (module, _frappe):
+			[(part, request)] = module.requests_for(package["runs"][0])
+		self.assertEqual(part, "build")
+		selections = request["selections"]
+		self.assertEqual(
+			{key: selections[key] for key in selections if key != "segments"},
+			{
+				"fixture_template_code": "ILL-RA01-SW",
+				"led_package_code": "SW-2835",
+				"environment_rating_code": "Dry",
+				"cct_code": "2700K",
+				"lens_appearance_code": "White",
+				"delivered_output_value": 350,
+				"mounting_method_code": "Surface",
+				"finish_code": "BK",
+			},
+		)
+		segment = selections["segments"][0]
+		self.assertEqual(
+			(segment["start_power_feed_type"], segment["start_feed_direction"]), ("Wire Leads", "End")
+		)
+		self.assertEqual(
+			(segment["requested_length_mm"], segment["start_leader_cable_length_mm"]), (2438, 1524)
+		)
+
 	def test_stale_catalog_warning(self):
 		self.assertIsNone(self.lisp.call("il-catalog-stale", self.catalog, "2026-12-01"))
 		self.assertIn("days old", self.lisp.call("il-catalog-stale", self.catalog, "2027-01-15"))
@@ -1584,6 +1670,34 @@ class Controls(unittest.TestCase):
 	def test_receipt_controls(self):
 		receipt = from_python_json({"schema": "ilq-receipt/1", "runs": [], "controls": {"DEC-01": "LK9"}})
 		self.assertEqual(plain(self.lisp.call("il-receipt-controls", receipt)), {"DEC-01": "LK9"})
+
+
+class LinearStyleCommand(unittest.TestCase):
+	"""ILSTYLE's linear fixture flow, run through the toolkit's own prompts with scripted answers."""
+
+	def test_the_prompts_cascade_and_build_the_style(self):
+		lisp = mini_lisp.Interpreter()
+		lisp.run(
+			package_bundle.joined_lisp().replace(
+				'(princ (strcat "\\nilLumenate CAD toolkit " *il-version* " loaded. Type ILHELP."))', ""
+			)
+		)
+		# Template (one), package 1, environment default, CCT (only one: no prompt), lens 2 (White),
+		# output 2 (350 lm/ft), mounting, finish and feed type defaults, direction 2 (End), default name.
+		answers = [None, 1, None, 2, 2, None, None, None, 2]
+		lisp.set("initget", lambda *args: None)
+		lisp.set("getint", lambda prompt: answers.pop(0))
+		lisp.set("getstring", lambda *args: "")
+		catalog = lisp.call("il-catalog-read", str(FIXTURES / "catalog.sample.json"))
+		style = to_python_json(lisp.call("il-new-linear-style", catalog))
+		self.assertEqual(answers, [])
+		self.assertEqual(style["label"], "ILL-RA01-SW 2700K 350lm White")
+		self.assertEqual(style["family"], "Linear Fixture")
+		self.assertEqual(style["selections"]["lens_appearance_code"], "White")
+		self.assertEqual(style["selections"]["delivered_output_value"], 350)
+		self.assertEqual(style["selections"]["finish_code"], "BK")
+		self.assertEqual(style["selections"]["mounting_method_code"], "Surface")
+		self.assertEqual(style["segments"][0]["start_feed_direction"], "End")
 
 
 class AccoreconsoleRunner(unittest.TestCase):

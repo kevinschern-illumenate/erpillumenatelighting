@@ -195,6 +195,20 @@ Turning it on: deploy the server first (older servers refuse packages with group
 `ill_cad_min_versions` to `{"autocad": "0.6.0"}` once pilots have it. Staging acceptance: the "Drawn
 multi-run groups" row in `docs/B2B_CLOUD_ACCEPTANCE.md`.
 
+## Linear fixture styles in ILSTYLE, toolkit 0.7.0 (2026-11-25)
+
+ILSTYLE could only make tape and neon styles; linear fixtures needed a saved preset. "New linear
+fixture style" now walks a linear template's options as the portal's linear configurator does.
+
+| Part | Built | Where |
+| --- | --- | --- |
+| Catalog | `fixture_templates[].linear`: LED packages (from the template's allowed tape offerings, disabled tape Items left out), environments, CCTs, lenses with `transmission_pct`, mountings, finishes, feed types (active allowed options, all records when the template lists none), feed directions, defaults, and `combos` of (package, environment, CCT, lens) with their delivered outputs. CCTs and outputs follow `get_ccts_for_template` and `get_delivered_outputs_for_template`: a multi-CCT package's own CCT list, else its list met with the offerings' CCTs, active CCTs only; output = tape lm/ft x lens transmission, nearest fixture-level output. Only combinations that deliver an output are listed (the portal's "every output level" fallback builds no tape). A template with none has no `linear` and is not offered. | `system_design/cad_catalog.py` (`linear_options`, `load_linear`) |
+| AutoCAD | ILSTYLE "New linear fixture style": template, LED package, environment, CCT, lens (shown with its transmission), delivered output, mounting, finish, feed type, feed direction, name. A choice with one value is taken without asking. | `il-catalog.lsp`, `il-commands.lsp` (`il-new-linear-style`) |
+| Import | No change: the style's selections are the configurator's engine keys (`fixture_template_code`, `led_package_code`, `environment_rating_code`, `cct_code`, `lens_appearance_code`, `delivered_output_value`, `mounting_method_code`, `finish_code`); `_fixture_payload_from_engine_selections` picks the tape from the output, the endcap color comes from the finish, and the feed type and direction go on each run's segments. Linear styles also work in groups (the same keys are the group's shared options). | `portal/drawing_import.py requests_for` |
+
+Bundle `public/cad_toolkit/ilLumenate-cad-toolkit-0.7.0.zip`. Download the catalog again after deploying:
+older catalogs have no `linear` data, so the new option says there is nothing to configure.
+
 ## Phase 0 live data (read-only, 2026-11-20)
 
 | Data | Live | Effect |

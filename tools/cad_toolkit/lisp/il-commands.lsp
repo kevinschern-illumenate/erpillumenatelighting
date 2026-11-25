@@ -147,6 +147,70 @@
                 (cons "template" (il-j template "code")) (cons "selections" (il-obj selections))))
 )
 
+;; One of ENTRIES (catalog {value, label} objects); DEFAULT is a value. A single entry is taken and
+;; shown without asking. nil when there are none or the user cancels.
+(defun il-choose-entry (title entries default / labels values at choice)
+  (cond
+    ((null entries) nil)
+    ((null (cdr entries))
+      (princ (strcat "\n" title ": " (il-str (il-j (car entries) "label"))))
+      (car entries)
+    )
+    (T
+      (setq labels (mapcar '(lambda (e) (il-str (il-j e "label"))) entries)
+            values (mapcar '(lambda (e) (il-j e "value")) entries)
+            at (vl-position default values))
+      (if (setq choice (il-choose title labels (if at (1+ at) 1)))
+        (nth (vl-position choice labels) entries)
+      )
+    )
+  )
+)
+
+;; A new linear fixture style, chosen like the portal's linear configurator: template, LED package,
+;; environment, CCT, lens, delivered output, mounting, finish, feed type and direction.
+(defun il-new-linear-style (catalog / templates names choice template linear defaults choices entry label)
+  (setq templates (vl-remove-if-not '(lambda (item) (il-j item "linear")) (il-items (il-j catalog "fixture_templates"))))
+  (if (null templates)
+    (progn (princ "\nThe catalog has no linear templates to configure. Download the current catalog, or pick a saved preset.") (exit))
+  )
+  (setq names (mapcar '(lambda (item) (strcat (il-str (il-j item "code")) "  " (il-str (il-j item "name")))) templates))
+  (if (null (setq choice (il-choose "Linear fixture template" names 1))) (exit))
+  (setq template (nth (vl-position choice names) templates) linear (il-j template "linear") defaults (il-j linear "defaults"))
+  (foreach step (list (list "package" "LED package" "led_packages" "led_package" nil)
+                      (list "environment" "Environment" "environments" "environment" "environment")
+                      (list "cct" "CCT" "ccts" "cct" nil))
+    (setq entry (il-choose-entry (cadr step)
+                                 (il-linear-choices linear (caddr step) (cadddr step)
+                                                    (il-get "package" choices) (il-get "environment" choices) (il-get "cct" choices))
+                                 (if (nth 4 step) (il-j defaults (nth 4 step)))))
+    (if (null entry) (exit))
+    (setq choices (append choices (list (cons (car step) (il-j entry "value")))))
+  )
+  (setq entry (il-choose-entry "Lens"
+                               (mapcar 'il-linear-lens-entry
+                                       (vl-remove-if-not
+                                         '(lambda (lens) (il-linear-combos linear (il-get "package" choices) (il-get "environment" choices)
+                                                                           (il-get "cct" choices) (il-j lens "value")))
+                                         (il-items (il-j linear "lenses"))))
+                               (il-j defaults "lens")))
+  (if (null entry) (exit))
+  (setq choices (append choices (list (cons "lens" (il-j entry "value")))))
+  (setq entry (il-choose-entry "Delivered output (after the lens)"
+                               (il-linear-outputs linear (il-get "package" choices) (il-get "environment" choices)
+                                                  (il-get "cct" choices) (il-get "lens" choices))
+                               nil))
+  (if (null entry) (exit))
+  (setq choices (append choices (list (cons "output" (il-j entry "value")))))
+  (foreach step '(("mounting" "Mounting" "mountings" "mounting") ("finish" "Finish" "finishes" "finish")
+                  ("feed_type" "Feed type" "feed_types" "feed_type") ("feed_direction" "Feed direction" "feed_directions" nil))
+    (setq entry (il-choose-entry (cadr step) (il-items (il-j linear (caddr step))) (if (cadddr step) (il-j defaults (cadddr step)))))
+    (if entry (setq choices (append choices (list (cons (car step) (il-j entry "value"))))))
+  )
+  (setq label (il-trim (il-ask "Style name" (il-linear-style-name template choices))))
+  (il-linear-style template choices label)
+)
+
 (defun il-pick-style (styles title / names choice)
   (setq names (mapcar '(lambda (style) (strcat (il-style-label style) "  [" (il-j style "family") "]")) styles))
   (if (setq choice (il-choose title names 1)) (nth (vl-position choice names) styles))
@@ -156,7 +220,8 @@
   (il-begin)
   (setq catalog (il-require-catalog))
   (setq source (il-choose "Run style"
-                 (append (if (il-styles) '("Recent style in this drawing")) '("Saved preset" "New tape or neon style"))
+                 (append (if (il-styles) '("Recent style in this drawing"))
+                         '("Saved preset" "New tape or neon style" "New linear fixture style"))
                  1))
   (cond
     ((= source "Recent style in this drawing") (setq style (il-pick-style (il-styles) "Styles in this drawing")))
@@ -171,6 +236,7 @@
       (setq family (il-choose "Family" '("LED Tape" "COB Tape" "LED Neon") 1))
       (if family (setq style (il-new-tape-style catalog family)))
     )
+    ((= source "New linear fixture style") (setq style (il-new-linear-style catalog)))
   )
   (if (and style (= (il-j style "family") "Extrusion Kit") (null (il-j style "tape")))
     (progn
@@ -2093,7 +2159,7 @@
     '("ilLumenate CAD toolkit: draw, check, upload. The portal builds the products and the quote."
       "  ILSETUP     layers, blocks, schedule name, symbol scale, title block"
       "  ILCATALOG   load the CAD catalog downloaded from the portal"
-      "  ILSTYLE     choose a run style (saved preset or template and options)"
+      "  ILSTYLE     choose a run style: saved preset, tape or neon template, or a linear fixture configured like the portal"
       "  ILTAPE      draw runs from the feed end, one after another; ILCONVERT turns lines, arcs and polylines into runs"
       "  ILJUMPER    jumper at a snapped point on a run (again to remove); Span marks a gap between two snapped points"
       "  ILFEED      snap to the feed end; feed direction, lead length and feed method"

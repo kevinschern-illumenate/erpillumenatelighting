@@ -144,3 +144,71 @@
             " or newer. Download the current toolkit from the portal Resources page")
   )
 )
+
+;; --- Linear fixture styles -------------------------------------------------------------------------
+;; A linear template's "linear" object is the portal linear configurator's cascade, precomputed by the
+;; portal: LED package, environment, CCT and lens narrow the buildable combos; each combo lists the
+;; delivered outputs (lm/ft) the lens allows. The portal picks the tape from the output on import.
+
+;; The combos matching the choices made so far (a nil choice matches anything).
+(defun il-linear-combos (linear package environment cct lens / result)
+  (foreach combo (il-items (il-j linear "combos"))
+    (if (and (or (null package) (= (il-j combo "led_package") package))
+             (or (null environment) (= (il-j combo "environment") environment))
+             (or (null cct) (= (il-j combo "cct") cct))
+             (or (null lens) (= (il-j combo "lens") lens)))
+      (setq result (cons combo result))
+    )
+  )
+  (reverse result)
+)
+
+;; The entries of LIST-KEY ("led_packages", "environments", "ccts", "lenses") some combo still
+;; matching the earlier choices uses at COMBO-KEY, in catalog order.
+(defun il-linear-choices (linear list-key combo-key package environment cct / combos)
+  (setq combos (il-linear-combos linear package environment cct nil))
+  (vl-remove-if-not
+    '(lambda (entry) (vl-some '(lambda (combo) (= (il-j combo combo-key) (il-j entry "value"))) combos))
+    (il-items (il-j linear list-key))
+  )
+)
+
+;; The delivered outputs (lm/ft) of one full combination, as {value, label} entries.
+(defun il-linear-outputs (linear package environment cct lens)
+  (mapcar '(lambda (value) (il-obj (list (cons "value" value) (cons "label" (strcat (il-num->str value 0) " lm/ft")))))
+          (il-items (il-j (car (il-linear-combos linear package environment cct lens)) "outputs")))
+)
+
+;; A lens entry labelled with its light transmission, as the portal shows it.
+(defun il-linear-lens-entry (entry)
+  (il-jset entry "label"
+    (strcat (il-str (il-j entry "label"))
+            (if (il-j entry "transmission_pct") (strcat " (" (il-num->str (il-j entry "transmission_pct") 1) "% transmission)") "")))
+)
+
+;; The run style a set of linear CHOICES makes: (("package" . v) ("environment" . v) ("cct" . v)
+;; ("lens" . v) ("output" . lm/ft) ("mounting" . v) ("finish" . v) ("feed_type" . v)
+;; ("feed_direction" . v)). Selections use the portal configurator's own keys, so the import builds it
+;; exactly as a fixture configured in the portal; the feed defaults go on the style's segments.
+(defun il-linear-style (template choices label / selections feed)
+  (setq selections (list (cons "fixture_template_code" (il-j template "code"))))
+  (foreach pair '(("package" . "led_package_code") ("environment" . "environment_rating_code") ("cct" . "cct_code")
+                  ("lens" . "lens_appearance_code") ("mounting" . "mounting_method_code") ("finish" . "finish_code"))
+    (if (il-get (car pair) choices) (setq selections (append selections (list (cons (cdr pair) (il-get (car pair) choices))))))
+  )
+  (if (il-get "output" choices) (setq selections (append selections (list (cons "delivered_output_value" (il-get "output" choices))))))
+  (foreach pair '(("feed_type" . "start_power_feed_type") ("feed_direction" . "start_feed_direction")
+                  ("feed_type" . "end_power_feed_type") ("feed_direction" . "end_feed_direction"))
+    (if (il-get (car pair) choices) (setq feed (append feed (list (cons (cdr pair) (il-get (car pair) choices))))))
+  )
+  (il-obj (append (list (cons "id" (strcat "custom:" label)) (cons "label" label) (cons "family" "Linear Fixture")
+                        (cons "template" (il-j template "code")) (cons "selections" (il-obj selections)))
+                  (if feed (list (cons "segments" (il-arr (list (il-obj feed))))))))
+)
+
+;; The default name of a linear style: template, CCT, output and lens.
+(defun il-linear-style-name (template choices)
+  (il-trim (strcat (il-str (il-j template "code")) " " (il-str (il-get "cct" choices)) " "
+                   (if (il-get "output" choices) (strcat (il-num->str (il-get "output" choices) 0) "lm") "") " "
+                   (il-str (il-get "lens" choices))))
+)

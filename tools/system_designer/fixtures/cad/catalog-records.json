@@ -244,6 +244,276 @@
    "minimum_side_bend_diameter_mm": 0
   }
  ],
+ "linear": {
+  "options": {
+   "ILL-RA01-SW": [
+    {
+     "option_type": "Environment Rating",
+     "environment_rating": "Dry",
+     "is_default": 1,
+     "is_active": 1
+    },
+    {
+     "option_type": "Environment Rating",
+     "environment_rating": "Wet",
+     "is_default": 0,
+     "is_active": 1
+    },
+    {
+     "option_type": "Environment Rating",
+     "environment_rating": "Damp",
+     "is_default": 0,
+     "is_active": 0
+    },
+    {
+     "option_type": "Lens Appearance",
+     "lens_appearance": "Frosted",
+     "is_default": 1,
+     "is_active": 1
+    },
+    {
+     "option_type": "Lens Appearance",
+     "lens_appearance": "White",
+     "is_default": 0,
+     "is_active": 1
+    },
+    {
+     "option_type": "Mounting Method",
+     "mounting_method": "Surface",
+     "is_default": 1,
+     "is_active": 1
+    },
+    {
+     "option_type": "Mounting Method",
+     "mounting_method": "Recessed",
+     "is_default": 0,
+     "is_active": 1
+    },
+    {
+     "option_type": "Finish",
+     "finish": "BK",
+     "is_default": 1,
+     "is_active": 1
+    },
+    {
+     "option_type": "Finish",
+     "finish": "WH",
+     "is_default": 0,
+     "is_active": 1
+    },
+    {
+     "option_type": "Power Feed Type",
+     "power_feed_type": "Wire Leads",
+     "is_default": 1,
+     "is_active": 1
+    },
+    {
+     "option_type": "Power Feed Type",
+     "power_feed_type": "Connector",
+     "is_default": 0,
+     "is_active": 1
+    }
+   ]
+  },
+  "tape_rows": {
+   "ILL-RA01-SW": [
+    {
+     "tape_offering": "OFF-L1",
+     "environment_rating": "Dry",
+     "lens_appearance": null,
+     "is_default": 1
+    },
+    {
+     "tape_offering": "OFF-L2",
+     "environment_rating": "Dry",
+     "lens_appearance": null,
+     "is_default": 0
+    },
+    {
+     "tape_offering": "OFF-L3",
+     "environment_rating": "Wet",
+     "lens_appearance": null,
+     "is_default": 0
+    },
+    {
+     "tape_offering": "OFF-TW",
+     "environment_rating": null,
+     "lens_appearance": null,
+     "is_default": 0
+    },
+    {
+     "tape_offering": "OFF-GONE",
+     "environment_rating": null,
+     "lens_appearance": null,
+     "is_default": 0
+    }
+   ]
+  },
+  "offerings": {
+   "OFF-L1": {
+    "name": "OFF-L1",
+    "led_package": "SW-2835",
+    "cct": "2700K",
+    "output_level": "300 lm/ft",
+    "tape_spec": "T-RA-24"
+   },
+   "OFF-L2": {
+    "name": "OFF-L2",
+    "led_package": "SW-2835",
+    "cct": "2700K",
+    "output_level": "600 lm/ft",
+    "tape_spec": "T-RA-24"
+   },
+   "OFF-L3": {
+    "name": "OFF-L3",
+    "led_package": "SW-2835",
+    "cct": "3000K",
+    "output_level": "300 lm/ft",
+    "tape_spec": "T-RA-24-WET"
+   },
+   "OFF-TW": {
+    "name": "OFF-TW",
+    "led_package": "TW-2835",
+    "cct": "Tunable White",
+    "output_level": "400 lm/ft",
+    "tape_spec": "T-RA-TW"
+   }
+  },
+  "led_packages": {
+   "SW-2835": {
+    "spectrum_type": "Static White",
+    "ccts": []
+   },
+   "TW-2835": {
+    "spectrum_type": "Tunable White",
+    "ccts": [
+     "2700K",
+     "3000K"
+    ]
+   }
+  },
+  "output_levels": {
+   "150 lm/ft": {
+    "name": "150 lm/ft",
+    "value": 150,
+    "is_fixture_level": 1
+   },
+   "200 lm/ft": {
+    "name": "200 lm/ft",
+    "value": 200,
+    "is_fixture_level": 1
+   },
+   "250 lm/ft": {
+    "name": "250 lm/ft",
+    "value": 250,
+    "is_fixture_level": 1
+   },
+   "300 lm/ft": {
+    "name": "300 lm/ft",
+    "value": 300,
+    "is_fixture_level": 1
+   },
+   "350 lm/ft": {
+    "name": "350 lm/ft",
+    "value": 350,
+    "is_fixture_level": 1
+   },
+   "500 lm/ft": {
+    "name": "500 lm/ft",
+    "value": 500,
+    "is_fixture_level": 1
+   },
+   "400 lm/ft": {
+    "name": "400 lm/ft",
+    "value": 400,
+    "is_fixture_level": 0
+   },
+   "600 lm/ft": {
+    "name": "600 lm/ft",
+    "value": 600,
+    "is_fixture_level": 0
+   }
+  },
+  "ccts": [
+   {
+    "name": "2700K",
+    "label": "2700K Warm",
+    "kelvin": 2700,
+    "sort_order": 1,
+    "is_active": 1
+   },
+   {
+    "name": "3000K",
+    "label": "3000K",
+    "kelvin": 3000,
+    "sort_order": 2,
+    "is_active": 1
+   },
+   {
+    "name": "Tunable White",
+    "label": "Tunable White",
+    "kelvin": 0,
+    "sort_order": 9,
+    "is_active": 0
+   }
+  ],
+  "lenses": {
+   "Frosted": {
+    "name": "Frosted",
+    "label": "Frosted",
+    "transmission": 0.9
+   },
+   "White": {
+    "name": "White",
+    "label": "White",
+    "transmission": 56
+   }
+  },
+  "environments": [
+   {
+    "name": "Dry",
+    "label": "Dry Location"
+   },
+   {
+    "name": "Wet",
+    "label": "Wet Location"
+   },
+   {
+    "name": "Damp",
+    "label": "Damp"
+   }
+  ],
+  "mountings": [
+   {
+    "name": "Surface"
+   },
+   {
+    "name": "Recessed"
+   }
+  ],
+  "finishes": [
+   {
+    "name": "BK",
+    "finish_name": "Black"
+   },
+   {
+    "name": "WH",
+    "finish_name": "White"
+   }
+  ],
+  "feed_types": [
+   {
+    "name": "Wire Leads"
+   },
+   {
+    "name": "Connector"
+   }
+  ],
+  "feed_directions": [
+   "Back",
+   "End"
+  ]
+ },
  "kit_templates": [
   {
    "name": "KIT-AZ01",

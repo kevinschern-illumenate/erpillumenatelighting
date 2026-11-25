@@ -9,7 +9,9 @@ A projection of the same spec doctypes and the same Design Catalog snapshot the 
 - ``templates``: tape and neon templates with their selectable options and every (spec, offering)
   variant's W/ft, cut interval, max runs, reel, width and bend radius, all in inches;
 - ``fixture_templates`` and ``kit_templates``: linear fixture and extrusion kit templates with their
-  default profile (drawn outline only; sticks, caps and clips come from the build on import);
+  default profile (drawn outline only; sticks, caps and clips come from the build on import). A linear
+  template also carries ``linear``: the options the portal's linear configurator cascades through
+  (:func:`linear_options`), so ILSTYLE can build a linear style offline;
 - ``profiles``: width, stock length, curve capability and the cross-section outline;
 - ``drivers``, ``controllers`` and ``wires``: the designer snapshot's items, for PSU location tags;
 - ``styles``: the user's own and company-shared configuration presets (run styles, plan 3.5), each
@@ -240,7 +242,184 @@ def profile_row(profile):
 	)
 
 
-def fixture_template(template):
+# Spectrum types whose LED package lists the CCTs a dealer picks (configurator_engine's set).
+MULTI_CCT_SPECTRUM_TYPES = frozenset({"Tunable White", "Dim to Warm", "RGB+TW", "RGBTW", "RGB+W", "RGBW"})
+# The portal's feed directions when the site has no ilL-Attribute-Feed-Direction records.
+DEFAULT_FEED_DIRECTIONS = ("End", "Back", "Left", "Right")
+
+
+def _entries(names, labels=None):
+	labels = labels or {}
+	return [{"value": name, "label": labels.get(name) or name} for name in names]
+
+
+def _closest_level(lm_ft, levels):
+	"""``configurator_engine._find_closest_fixture_output_level``: the first level nearest LM_FT."""
+	best, best_diff = None, None
+	for level in levels:
+		diff = abs(float(level["value"]) - lm_ft)
+		if best_diff is None or diff < best_diff:
+			best, best_diff = level, diff
+	return best
+
+
+def linear_options(template_name, data):
+	"""The portal linear configurator's cascade for one template, precomputed for AutoCAD.
+
+	Mirrors ``configurator_engine``: LED packages come from the template's allowed tape offerings;
+	environments, lenses, mountings, finishes and feed types from its active allowed options (all
+	records when it lists none); CCTs as ``get_ccts_for_template`` picks them (a multi-CCT package's
+	own list, else the package list met with the offerings' CCTs, active CCTs only); delivered outputs
+	as ``get_delivered_outputs_for_template`` computes them (each matching offering's lm/ft times the
+	lens transmission, matched to the nearest fixture-level output). ``combos`` lists only the
+	(package, environment, CCT, lens) choices that deliver an output, so every style ILSTYLE builds is
+	one the configurator can build; the portal's "all output levels" fallback, which no tape can
+	build, is left out. Returns None when the template has no buildable combination.
+	"""
+	from illumenate_lighting.illumenate_lighting.api.tape_selection import transmission_fraction
+
+	allowed = [row for row in data["options"].get(template_name) or [] if row.get("is_active", 1)]
+
+	def allowed_values(option_type, field):
+		values, default = [], None
+		for row in allowed:
+			value = row.get(field)
+			if row.get("option_type") != option_type or not value:
+				continue
+			if value not in values:
+				values.append(value)
+			if row.get("is_default") and default is None:
+				default = value
+		return values, default
+
+	offerings = data["offerings"]
+	usable = [
+		(row, offerings[row["tape_offering"]])
+		for row in data["tape_rows"].get(template_name) or []
+		if row.get("tape_offering") in offerings
+	]
+	if not usable:
+		return None
+	packages = []
+	for _row, offering in usable:
+		if offering.get("led_package") and offering["led_package"] not in packages:
+			packages.append(offering["led_package"])
+	environments, env_default = allowed_values("Environment Rating", "environment_rating")
+	environments = environments or [row["name"] for row in data["environments"]]
+	lenses, lens_default = allowed_values("Lens Appearance", "lens_appearance")
+	lenses = lenses or [row["name"] for row in data["lenses"].values()]
+	levels = sorted(
+		(row for row in data["output_levels"].values() if row.get("is_fixture_level")),
+		key=lambda row: float(row.get("value") or 0),
+	)
+	cct_rows = data["ccts"]
+	cct_order = {row["name"]: index for index, row in enumerate(cct_rows)}
+	active_ccts = {row["name"] for row in cct_rows if row.get("is_active")}
+	combos = []
+	for package in packages:
+		info = data["led_packages"].get(package) or {}
+		multi = info.get("spectrum_type") in MULTI_CCT_SPECTRUM_TYPES
+		listed = info.get("ccts") or None
+		for environment in environments:
+			rows = [
+				(row, off)
+				for row, off in usable
+				if not row.get("environment_rating") or row["environment_rating"] == environment
+			]
+			if multi and listed:
+				ccts = list(listed)
+			else:
+				tape_ccts = {
+					off["cct"] for _row, off in rows if off.get("led_package") == package and off.get("cct")
+				}
+				if listed is not None:
+					ccts = [cct for cct in listed if cct in tape_ccts] if tape_ccts else list(listed)
+					ccts = ccts or list(listed)
+				else:
+					ccts = list(tape_ccts)
+				if active_ccts and not multi:
+					ccts = [cct for cct in ccts if cct in active_ccts]
+			ccts = sorted((cct for cct in set(ccts) if cct in cct_order), key=cct_order.get)
+			for cct in ccts:
+				for lens in lenses:
+					transmission = transmission_fraction((data["lenses"].get(lens) or {}).get("transmission"))
+					candidates = [
+						off
+						for row, off in rows
+						if off.get("led_package") == package
+						and (not row.get("lens_appearance") or row["lens_appearance"] == lens)
+					]
+					matched = [off for off in candidates if off.get("cct") == cct]
+					if not matched and multi:
+						matched = candidates
+					outputs = set()
+					for off in matched:
+						level = data["output_levels"].get(off.get("output_level"))
+						if not level or level.get("value") in (None, ""):
+							continue
+						closest = _closest_level(float(level["value"]) * transmission, levels)
+						if closest:
+							outputs.add(int(float(closest["value"])))
+					if outputs:
+						combos.append(
+							{
+								"led_package": package,
+								"environment": environment,
+								"cct": cct,
+								"lens": lens,
+								"outputs": sorted(outputs),
+							}
+						)
+	if not combos:
+		return None
+
+	def used(key, values):
+		seen = {combo[key] for combo in combos}
+		return [value for value in values if value in seen]
+
+	env_labels = {row["name"]: row.get("label") for row in data["environments"]}
+	cct_labels = {row["name"]: row.get("label") for row in cct_rows}
+	mountings, mount_default = allowed_values("Mounting Method", "mounting_method")
+	finishes, finish_default = allowed_values("Finish", "finish")
+	feed_types, feed_default = allowed_values("Power Feed Type", "power_feed_type")
+	lens_entries = []
+	for lens in used("lens", lenses):
+		row = data["lenses"].get(lens) or {}
+		lens_entries.append(
+			{
+				"value": lens,
+				"label": row.get("label") or lens,
+				"transmission_pct": round(transmission_fraction(row.get("transmission")) * 100, 1),
+			}
+		)
+	return {
+		"led_packages": _entries(used("led_package", packages)),
+		"environments": _entries(used("environment", environments), env_labels),
+		"ccts": _entries(
+			[row["name"] for row in cct_rows if row["name"] in {c["cct"] for c in combos}], cct_labels
+		),
+		"lenses": lens_entries,
+		"combos": combos,
+		"mountings": _entries(mountings or [row["name"] for row in data["mountings"]]),
+		"finishes": _entries(
+			finishes or [row["name"] for row in data["finishes"]],
+			{row["name"]: row.get("finish_name") for row in data["finishes"]},
+		),
+		"feed_types": _entries(feed_types or [row["name"] for row in data["feed_types"]]),
+		"feed_directions": _entries(data["feed_directions"] or list(DEFAULT_FEED_DIRECTIONS)),
+		"defaults": _compact(
+			{
+				"environment": env_default,
+				"lens": lens_default,
+				"mounting": mount_default,
+				"finish": finish_default,
+				"feed_type": feed_default,
+			}
+		),
+	}
+
+
+def fixture_template(template, linear=None):
 	return _compact(
 		{
 			"family": "Linear Fixture",
@@ -251,6 +430,7 @@ def fixture_template(template):
 			"stock_length_in": _inches(template.get("default_profile_stock_len_mm")),
 			"max_assembled_in": _inches(template.get("assembled_max_len_mm")),
 			"min_bend_radius_in": bend_radius_in(None, template),
+			"linear": linear_options(template["name"], linear) if linear else None,
 		}
 	)
 
@@ -402,7 +582,8 @@ def build_payload(data):
 		},
 		"templates": sorted(templates, key=lambda row: (row["family"], row["code"])),
 		"fixture_templates": sorted(
-			(fixture_template(row) for row in data["fixture_templates"]), key=lambda row: row["code"]
+			(fixture_template(row, data.get("linear")) for row in data["fixture_templates"]),
+			key=lambda row: row["code"],
 		),
 		"kit_templates": sorted(
 			(kit_template(row) for row in data["kit_templates"]), key=lambda row: row["code"]
@@ -511,6 +692,116 @@ def load_styles(user=None):
 	return styles
 
 
+def _attribute_rows(doctype, fields, order_by="name asc"):
+	"""An attribute doctype's records; active ones only when it has ``is_active`` (as the engine does)."""
+	active = frappe.db.has_column(doctype, "is_active")
+	return frappe.get_all(
+		doctype,
+		filters={"is_active": 1} if active else {},
+		fields=["name", *_present(doctype, fields)],
+		order_by=order_by,
+		ignore_permissions=True,
+	)
+
+
+def load_linear(template_names):
+	"""The rows :func:`linear_options` reads for the linear fixture templates ``template_names``."""
+	from illumenate_lighting.illumenate_lighting.api.item_availability import disabled_tape_offerings
+
+	options = _children(
+		"ilL-Child-Template-Allowed-Option",
+		FIXTURE_TEMPLATE,
+		template_names,
+		[
+			"option_type",
+			"finish",
+			"lens_appearance",
+			"mounting_method",
+			"power_feed_type",
+			"environment_rating",
+			"is_default",
+			"is_active",
+		],
+	)
+	tape_rows = _children(
+		"ilL-Child-Template-Allowed-TapeOffering",
+		FIXTURE_TEMPLATE,
+		template_names,
+		["tape_offering", "environment_rating", "lens_appearance", "is_default"],
+	)
+	names = sorted(
+		{row["tape_offering"] for rows in tape_rows.values() for row in rows if row.get("tape_offering")}
+	)
+	off = disabled_tape_offerings(names)
+	offerings = {}
+	if names:
+		for row in frappe.get_all(
+			OFFERING,
+			filters={"name": ["in", names], "is_active": 1},
+			fields=["name", "led_package", "cct", "output_level", "tape_spec"],
+			ignore_permissions=True,
+		):
+			if row["name"] not in off:
+				offerings[row["name"]] = row
+	packages = sorted({row["led_package"] for row in offerings.values() if row.get("led_package")})
+	led_packages = {}
+	if packages:
+		for row in frappe.get_all(
+			"ilL-Attribute-LED Package",
+			filters={"name": ["in", packages]},
+			fields=["name", "spectrum_type"],
+			ignore_permissions=True,
+		):
+			led_packages[row["name"]] = {"spectrum_type": row.get("spectrum_type"), "ccts": []}
+		for parent, rows in _children(
+			"ilL-Child-LED Package CCT", "ilL-Attribute-LED Package", packages, ["cct"]
+		).items():
+			if parent in led_packages:
+				led_packages[parent]["ccts"] = [row["cct"] for row in rows if row.get("cct")]
+	feed_directions = []
+	if frappe.db.exists("DocType", "ilL-Attribute-Feed-Direction"):
+		feed_directions = [
+			row["direction_name"]
+			for row in frappe.get_all(
+				"ilL-Attribute-Feed-Direction",
+				filters={"is_active": 1},
+				fields=["direction_name"],
+				order_by="direction_name asc",
+				ignore_permissions=True,
+			)
+			if row.get("direction_name")
+		]
+	return {
+		"options": options,
+		"tape_rows": tape_rows,
+		"offerings": offerings,
+		"led_packages": led_packages,
+		"output_levels": {
+			row["name"]: row
+			for row in frappe.get_all(
+				"ilL-Attribute-Output Level",
+				fields=["name", "value", "is_fixture_level"],
+				ignore_permissions=True,
+			)
+		},
+		"ccts": frappe.get_all(
+			"ilL-Attribute-CCT",
+			fields=["name", "label", "kelvin", "sort_order", "is_active"],
+			order_by="sort_order asc, kelvin asc",
+			ignore_permissions=True,
+		),
+		"lenses": {
+			row["name"]: row
+			for row in _attribute_rows("ilL-Attribute-Lens Appearance", ["label", "transmission"])
+		},
+		"environments": _attribute_rows("ilL-Attribute-Environment Rating", ["label"]),
+		"mountings": _attribute_rows("ilL-Attribute-Mounting Method", []),
+		"finishes": _attribute_rows("ilL-Attribute-Finish", ["finish_name"]),
+		"feed_types": _attribute_rows("ilL-Attribute-Power Feed Type", []),
+		"feed_directions": feed_directions,
+	}
+
+
 def load_data(staff, user=None):
 	from illumenate_lighting.illumenate_lighting.portal import site_flags
 	from illumenate_lighting.illumenate_lighting.portal_listing import template_filters
@@ -593,6 +884,7 @@ def load_data(staff, user=None):
 		],
 		ignore_permissions=True,
 	)
+	linear = load_linear([row["name"] for row in fixture_templates])
 	kit_templates = frappe.get_all(
 		KIT_TEMPLATE,
 		filters=template_filters(staff, is_active=1),
@@ -629,6 +921,7 @@ def load_data(staff, user=None):
 		"tapes": tapes,
 		"offerings": offerings,
 		"fixture_templates": fixture_templates,
+		"linear": linear,
 		"kit_templates": kit_templates,
 		"profiles": profiles,
 		"styles": load_styles(user),

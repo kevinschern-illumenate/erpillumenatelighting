@@ -76,6 +76,15 @@ Golden cases and fixtures live with the System Designer's so Python, TypeScript 
   group's room with its first run. A copied group tag lists the nearest copy of each of its runs, so
   ARRAY of a whole bay (runs and tag) makes independent groups. ILRECEIPT stamps each group's line key
   and part number; ILOUT lists each group's runs and shared supplies.
+- **Linear fixture styles (0.7.0).** ILSTYLE "New linear fixture style" configures any linear template
+  the catalog offers the way the portal's linear configurator does: LED package, environment, CCT, lens
+  (with its transmission %), delivered output, mounting, finish, feed type and direction. The catalog
+  carries each template's cascade (`fixture_templates[].linear`, built by `cad_catalog.linear_options`
+  with the configurator's rules); only combinations that deliver an output are listed. The style keeps
+  the configurator's own selection keys (`led_package_code`, `delivered_output_value`, ...), and the feed
+  defaults go on its segments, so the import builds it as a fixture configured in the portal (the tape
+  is picked from the output). Pure helpers: `il-linear-combos`, `il-linear-choices`,
+  `il-linear-outputs`, `il-linear-style` in `il-catalog.lsp`.
 - **Minimum toolkit version.** A catalog's optional `settings.min_toolkit_version` (dotted integers,
   `il-version<`) newer than `*il-version*` prints a warning on ILCATALOG and the first catalog load (and in
   ILVERSION) to download the current toolkit from the portal Resources page; ILCHECK adds the warning

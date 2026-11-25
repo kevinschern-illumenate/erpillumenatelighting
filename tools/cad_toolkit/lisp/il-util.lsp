@@ -4,7 +4,7 @@
 ;;; plus a few vl- string and list functions that full AutoCAD, LT 2024+ and Mac all provide
 ;;; (no vlax-/vla- ActiveX, no reactors).
 
-(setq *il-version* "0.6.0")
+(setq *il-version* "0.7.0")
 
 ;; --- Association lists ------------------------------------------------------------------------
 

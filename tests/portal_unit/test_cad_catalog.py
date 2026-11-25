@@ -77,6 +77,54 @@ class CadCatalog(unittest.TestCase):
 		self.assertTrue(variant["free_cut"])
 		self.assertNotIn("cut_in", variant)
 
+	def test_linear_templates_carry_the_configurator_cascade(self):
+		linear = self.payload["fixture_templates"][0]["linear"]
+		combos = {(c["led_package"], c["environment"], c["cct"], c["lens"]): c["outputs"] for c in linear["combos"]}
+		# 300 and 600 lm/ft tape behind a 90 % frosted lens deliver 270 and 540: the 250 and 500 levels.
+		self.assertEqual(combos[("SW-2835", "Dry", "2700K", "Frosted")], [250, 500])
+		# A 56 % white lens (stored as a percent) needs the same tape for lower levels.
+		self.assertEqual(combos[("SW-2835", "Dry", "2700K", "White")], [150, 350])
+		# Environment rows narrow the tape: only the Wet offering, in 3000K, builds a Wet fixture.
+		self.assertEqual(combos[("SW-2835", "Wet", "3000K", "Frosted")], [250])
+		self.assertNotIn(("SW-2835", "Wet", "2700K", "Frosted"), combos)
+		# A Tunable White package offers its own CCTs; its generic-CCT offering builds each of them.
+		self.assertEqual(combos[("TW-2835", "Dry", "3000K", "White")], [200])
+		self.assertEqual([row["value"] for row in linear["environments"]], ["Dry", "Wet"])  # Damp inactive
+		self.assertEqual(linear["environments"][0]["label"], "Dry Location")
+		self.assertEqual([row["value"] for row in linear["ccts"]], ["2700K", "3000K"])
+		self.assertEqual(
+			[(row["value"], row["transmission_pct"]) for row in linear["lenses"]], [("Frosted", 90.0), ("White", 56.0)]
+		)
+		self.assertEqual(linear["finishes"][0], {"value": "BK", "label": "Black"})
+		self.assertEqual(
+			linear["defaults"],
+			{"environment": "Dry", "lens": "Frosted", "mounting": "Surface", "finish": "BK", "feed_type": "Wire Leads"},
+		)
+		self.assertEqual([row["value"] for row in linear["feed_directions"]], ["Back", "End"])
+
+	def test_linear_template_without_buildable_tape_has_no_options(self):
+		data = records()
+		data["linear"]["tape_rows"]["ILL-RA01-SW"] = [{"tape_offering": "OFF-GONE"}]
+		self.assertNotIn("linear", self.module.build_payload(data)["fixture_templates"][0])
+		data = records()
+		del data["linear"]
+		self.assertNotIn("linear", self.module.build_payload(data)["fixture_templates"][0])
+
+	def test_linear_fallbacks_follow_the_engine(self):
+		data = records()
+		linear = data["linear"]
+		# No allowed environment, lens or mounting rows: every record is offered, as in the portal.
+		linear["options"]["ILL-RA01-SW"] = [
+			row for row in linear["options"]["ILL-RA01-SW"] if row["option_type"] not in ("Lens Appearance", "Mounting Method")
+		]
+		# A static package with its own CCT list meets the tape CCTs; inactive CCTs are left out.
+		linear["led_packages"]["SW-2835"]["ccts"] = ["3000K", "2700K"]
+		linear["ccts"][1]["is_active"] = 0
+		options = self.module.build_payload(data)["fixture_templates"][0]["linear"]
+		self.assertEqual([row["value"] for row in options["mountings"]], ["Surface", "Recessed"])
+		self.assertEqual({c["cct"] for c in options["combos"] if c["led_package"] == "SW-2835"}, {"2700K"})
+		self.assertNotIn("lens", options["defaults"])
+
 	def test_options_are_active_ordered_and_defaulted(self):
 		options = self.templates["led-hd-sw"]["options"]
 		self.assertEqual([row["key"] for row in options], ["environment_rating", "cct", "output_level", "feed_type", "feed_direction"])
@@ -207,6 +255,59 @@ def write():
 	with load_service(MODULE) as (module, _frappe):
 		payload = module.build_payload(records())
 	(FIXTURES / "catalog.sample.json").write_text(json.dumps(payload, indent=1, sort_keys=True) + "\n", encoding="utf-8")
+
+
+class LinearLoader(unittest.TestCase):
+	"""``load_linear`` reads the rows ``linear_options`` needs, dropping disabled and inactive tape."""
+
+	def test_loader_rows_build_the_same_cascade(self):
+		linear = records()["linear"]
+		availability = types.SimpleNamespace(disabled_tape_offerings=lambda names: {"OFF-L2"})
+		extras = {ROOT + ".api.item_availability": availability}
+		with load_service(MODULE, extras) as (module, frappe):
+			tape_rows = [{**row, "parent": "ILL-RA01-SW"} for row in linear["tape_rows"]["ILL-RA01-SW"]]
+			option_rows = [{**row, "parent": "ILL-RA01-SW"} for row in linear["options"]["ILL-RA01-SW"]]
+
+			def get_all(doctype, filters=None, fields=None, **kwargs):
+				if doctype == "ilL-Child-Template-Allowed-Option":
+					return [Record(row) for row in option_rows]
+				if doctype == "ilL-Child-Template-Allowed-TapeOffering":
+					return [Record(row) for row in tape_rows]
+				if doctype == "ilL-Rel-Tape Offering":
+					self.assertEqual(filters["is_active"], 1)
+					return [Record(row) for name, row in linear["offerings"].items() if name in filters["name"][1]]
+				if doctype == "ilL-Attribute-LED Package":
+					return [Record(name=name, spectrum_type=row["spectrum_type"]) for name, row in linear["led_packages"].items()]
+				if doctype == "ilL-Child-LED Package CCT":
+					return [Record(parent="TW-2835", cct=cct) for cct in ("2700K", "3000K")]
+				if doctype == "ilL-Attribute-Output Level":
+					return [Record(row) for row in linear["output_levels"].values()]
+				if doctype == "ilL-Attribute-CCT":
+					return [Record(row) for row in linear["ccts"]]
+				if doctype == "ilL-Attribute-Lens Appearance":
+					return [Record(row) for row in linear["lenses"].values()]
+				if doctype == "ilL-Attribute-Environment Rating":
+					return [Record(row) for row in linear["environments"]]
+				if doctype == "ilL-Attribute-Finish":
+					return [Record(row) for row in linear["finishes"]]
+				if doctype == "ilL-Attribute-Mounting Method":
+					return [Record(row) for row in linear["mountings"]]
+				if doctype == "ilL-Attribute-Power Feed Type":
+					return [Record(row) for row in linear["feed_types"]]
+				if doctype == "ilL-Attribute-Feed-Direction":
+					return [Record(direction_name=name) for name in linear["feed_directions"]]
+				raise AssertionError(doctype)
+
+			frappe.get_all.side_effect = get_all
+			frappe.db.has_column.return_value = True
+			frappe.db.exists.return_value = True
+			loaded = module.load_linear(["ILL-RA01-SW"])
+			self.assertNotIn("OFF-L2", loaded["offerings"])  # its tape Item is disabled
+			self.assertEqual(loaded["led_packages"]["TW-2835"]["ccts"], ["2700K", "3000K"])
+			options = module.linear_options("ILL-RA01-SW", loaded)
+		combos = {(c["led_package"], c["environment"], c["cct"], c["lens"]): c["outputs"] for c in options["combos"]}
+		self.assertEqual(combos[("SW-2835", "Dry", "2700K", "Frosted")], [250])  # 600 lm/ft tape is disabled
+		self.assertEqual(combos[("TW-2835", "Wet", "2700K", "White")], [200])
 
 
 if __name__ == "__main__":
