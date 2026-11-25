@@ -1495,7 +1495,9 @@ def server_issues(package):
 	if not catalog:
 		return []
 	issues = drawing_checks.check_package(package, catalog)
-	issues = [issue for issue in issues if issue["code"] in drawing_checks.PORTED_CODES]
+	# Group rules are the planner's own (plan_group runs them whether or not a catalog exists).
+	codes = drawing_checks.PORTED_CODES - drawing_checks.GROUP_CODES
+	issues = [issue for issue in issues if issue["code"] in codes]
 	return drawing_checks.apply_overrides(issues, (package.get("check") or {}).get("overrides") or [])
 
 

@@ -91,6 +91,9 @@ def case_package(case):
 		run.setdefault("fixture_type", run["id"].split("-")[0])
 	for index, control in enumerate(package.get("controls") or []):
 		control.setdefault("handle", format(0x800 + index, "X"))
+	for index, group in enumerate(package.get("groups") or []):
+		group.setdefault("handle", format(0x900 + index, "X"))
+		group.setdefault("fixture_type", "T1")
 	return ilq_schema.with_defaults(package)
 
 
@@ -150,7 +153,9 @@ def lisp_model(package):
 			"jumper_in": 12.0,
 			"feed_method": run["feed"]["method"],
 		}
-		runs.append(to_alist(optional(values, run, "room", "cabinet")))
+		if (run.get("copies") or 1) > 1:
+			values["copies"] = run["copies"]
+		runs.append(to_alist(optional(values, run, "room", "cabinet", "label")))
 	controls = []
 	for control in package["controls"]:
 		values = {
@@ -168,6 +173,20 @@ def lisp_model(package):
 		if zone.get("control"):
 			values.update(control=zone["control"]["id"], port=zone["control"]["port"])
 		zones.append(to_alist(values))
+	groups = []
+	for group in package.get("groups") or []:
+		power = group.get("power") or {}
+		values = {
+			"id": group["id"],
+			"handle": group["handle"],
+			"fixture_type": group["fixture_type"],
+			"runs": lst(group["runs"]),
+			"include": "1" if power.get("include_supplies", True) else "0",
+			"allocation": power.get("allocation") or "grouped",
+		}
+		if power.get("override_max_run_ft"):
+			values["override"] = power["override_max_run_ft"]
+		groups.append(to_alist(optional(values, group, "room", "location", "notes")))
 	return to_alist(
 		{
 			"drawing": to_alist(
@@ -195,6 +214,7 @@ def lisp_model(package):
 			),
 			"controls": lst(controls),
 			"zones": lst(zones),
+			"groups": lst(groups),
 			"overrides": lst(to_alist(override) for override in package["check"]["overrides"]),
 		}
 	)

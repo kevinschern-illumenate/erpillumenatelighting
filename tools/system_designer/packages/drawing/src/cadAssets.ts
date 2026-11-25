@@ -134,6 +134,18 @@ export function planBlocks(): BlockData[] {
       ],
     },
     {
+      name: 'IL-GROUPTAG',
+      description: 'Multi-run group tag: id, Type and run count',
+      items: [
+        ['PLINE', [-0.34, -0.12, 0.34, -0.12, 0.34, 0.12, -0.34, 0.12], true, 'E-ANNO-TAGS'],
+        ['LINE', -0.28, -0.12, -0.28, 0.12, 'E-ANNO-TAGS'],
+        ['LINE', 0.28, -0.12, 0.28, 0.12, 'E-ANNO-TAGS'],
+        tag('TAG', 0, -0.047, 0.09375, 'E-ANNO-TAGS'),
+        tag('RUNS', 0, -0.27, 0.09375, 'E-ANNO-TAGS'),
+        tag('PART', 0, -0.42, 0.09375, 'E-ANNO-TAGS', false),
+      ],
+    },
+    {
       name: 'IL-WIRETAG',
       description: 'Wire tag',
       items: [

@@ -48,6 +48,14 @@ Rules ported (code, severity):
   port with the zone's port name, or the port's ``protocol`` is not the zone method's protocol
   (method ``none`` wants none).
 
+- Groups (``il-check-groups``, model only, ref the group id): ``GROUP_UNKNOWN_RUN``,
+  ``GROUP_RUN_IN_TWO_GROUPS``, ``GROUP_EMPTY`` and ``GROUP_TOO_MANY`` (more than 12 runs, stacked
+  copies included) are errors a valid package cannot have, kept for the LISP's sake; ``GROUP_MIXED_STYLE``,
+  ``GROUP_FAMILY`` (only Linear Fixture, LED Tape, COB Tape and LED Neon), ``GROUP_MIXED_TYPE`` and
+  ``GROUP_MIXED_ROOM`` are errors; ``GROUP_MIXED_FEED`` is a warning. ``COPIES_NOT_IN_GROUP`` (error, ref
+  the run) is a stacked run no group lists. The drawing import runs :func:`group_issues` itself, so its
+  server checks leave these codes out.
+
 Where the package differs from the LISP model:
 
 - Lengths and radii: the LISP rounds each lit piece's length and smallest arc radius to 4 decimals
@@ -71,7 +79,23 @@ LISP's ``il-issue-counts`` does (an overridden issue counts as neither, whatever
 
 import math
 
-PORTED_CODES = frozenset(
+# Group rules (``il-check-groups``): model only, so the drawing import runs them itself for each group.
+GROUP_CODES = frozenset(
+	{
+		"GROUP_UNKNOWN_RUN",
+		"GROUP_RUN_IN_TWO_GROUPS",
+		"GROUP_EMPTY",
+		"GROUP_TOO_MANY",
+		"GROUP_MIXED_STYLE",
+		"GROUP_FAMILY",
+		"GROUP_MIXED_TYPE",
+		"GROUP_MIXED_ROOM",
+		"GROUP_MIXED_FEED",
+		"COPIES_NOT_IN_GROUP",
+	}
+)
+
+PORTED_CODES = GROUP_CODES | frozenset(
 	{
 		"CATALOG_MISSING",
 		"RUN_NO_TAPE",
