@@ -92,6 +92,9 @@
 	.ill-doc .ill-items th.ill-center { text-align: center; }
 	.ill-doc .ill-items .ill-idx { color: #a2abb6; width: 22px; font-size: 7.5px; }
 	.ill-doc .ill-items td.ill-idx { padding-top: 6px; }
+	.print-format .ill-doc .ill-items th.ill-item-image, .ill-doc .ill-items th.ill-item-image { width: 94px; text-align: center; padding-left: 4px; padding-right: 4px; }
+	.ill-doc .ill-items .ill-line-row > td.ill-item-image { vertical-align: middle; padding: 6px 4px; }
+	.ill-doc .ill-items .ill-item-image img { display: block; width: auto; height: auto; max-width: 84px; max-height: 72px; margin: 0 auto; }
 
 	/* A line group: section header, fixture type row, the line, its notes; kept on one page. */
 	.ill-doc .ill-line { page-break-inside: avoid; }
@@ -101,7 +104,8 @@
 	.ill-doc .ill-type-label { font-size: 6px; letter-spacing: 0.9px; text-transform: uppercase; color: #5d6d7f; margin-right: 5px; }
 	.ill-doc .ill-items .ill-has-type > td { padding-top: 18px; }
 	.ill-doc .ill-items .ill-has-type > td.ill-idx { padding-top: 19px; }
-	.ill-doc .ill-items .ill-has-type > td:nth-child(2) { padding-top: 5px; }
+	.ill-doc .ill-items .ill-has-type > td:nth-child(2):not(.ill-idx),
+	.ill-doc .ill-items .ill-has-type > td.ill-item-image + td + td { padding-top: 5px; }
 	.ill-doc .ill-section-total td { font-size: 8px; color: #5d6d7f; padding: 5px 6px 2px 6px; border-bottom: none; }
 	.ill-doc .ill-section-total td.ill-num { color: #231f20; font-weight: 600; padding-right: 0; }
 	.ill-doc .ill-line-name { font-weight: 500; color: #231f20; }
@@ -403,16 +407,20 @@
   mode "dealer": list price, discount and net price when any line is discounted, else one
   unit price column. mode "msrp": suggested retail (list) prices only.
 --#}
-{%- macro priced_items(mode="dealer") -%}
+{%- macro priced_items(mode="dealer", show_images=False) -%}
 {%- set pricing = ill_print_pricing(doc.items) -%}
 {%- set sections = ill_print_sections(doc.items) -%}
 {%- set discounted = mode == "dealer" -%}
-{%- set cols = 7 if discounted else 5 -%}
+{%- set cols = (7 if discounted else 5) + (1 if show_images else 0) -%}
+{%- set fallback_images = ill_print_item_images(doc.items) if show_images else {} -%}
 {%- set labelled = sections | selectattr("label") | list | length -%}
 {%- set row = namespace(n=0) -%}
 {%- set items_head -%}
 <thead>
 		<tr>
+			{%- if show_images %}
+			<th class="ill-item-image">Image</th>
+			{%- endif %}
 			<th class="ill-idx">#</th>
 			<th>Item</th>
 			<th class="ill-num" style="width: 8%;">Qty</th>
@@ -435,6 +443,10 @@
 		{%- set row.n = row.n + 1 -%}
 		{%- set unit = ill_print_msrp(item) if mode == "msrp" else item.rate -%}
 		{%- call line_group(entry, cols, items_head) -%}
+			{%- if show_images %}
+			{%- set image = ((item.get("image") or "") | trim) or fallback_images.get(item.item_code) %}
+			<td class="ill-item-image">{% if image %}<img src="{{ image | e }}" alt="{{ (item.item_name or item.item_code or "") | e }}">{% endif %}</td>
+			{%- endif %}
 			<td class="ill-idx">{{ row.n | int }}</td>
 			<td>{{ line_type(entry) }}{{ line(item) }}{{ line_power(item) }}{{ line_notes(entry) }}</td>
 			<td class="ill-num">{{ qty(item.qty, item.uom) }}</td>

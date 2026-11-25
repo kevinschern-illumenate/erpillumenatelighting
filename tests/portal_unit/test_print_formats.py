@@ -335,6 +335,8 @@ class Helpers(unittest.TestCase):
 SAMPLES = {
 	"ill_quotation": lambda: sales_doc(),
 	"ill_quotation___msrp": lambda: sales_doc(),
+	"ill_quotation_image": lambda: sales_doc(),
+	"ill_quotation_image__msrp": lambda: sales_doc(),
 	"ill_sales_order": lambda: sales_doc(
 		doctype="Sales Order", status="On Hold", po_no="PO-77", advance_paid=100.0
 	),
@@ -515,15 +517,50 @@ class Formats(unittest.TestCase):
 						self.assertRegex(expression, r"\selse\s", expression.strip()[:80])
 
 	def test_dealer_formats_show_discounts_and_msrp_formats_do_not(self):
-		dealer = render("ill_quotation", sales_doc())
-		self.assertIn(">Disc<", dealer)
-		self.assertIn("$0.51", dealer)
-		retail = render("ill_quotation___msrp", sales_doc())
-		self.assertNotIn(">Disc<", retail)
-		self.assertNotIn("$0.51", retail)
-		self.assertNotIn("FedEx", retail)
-		self.assertIn("$0.85", retail)
-		self.assertIn("Total (MSRP)", retail)
+		for dealer_format, msrp_format in (
+			("ill_quotation", "ill_quotation___msrp"),
+			("ill_quotation_image", "ill_quotation_image__msrp"),
+		):
+			with self.subTest(format=dealer_format):
+				dealer = render(dealer_format, sales_doc())
+				self.assertIn(">Disc<", dealer)
+				self.assertIn("$0.51", dealer)
+				retail = render(msrp_format, sales_doc())
+				self.assertNotIn(">Disc<", retail)
+				self.assertNotIn("$0.51", retail)
+				self.assertNotIn("FedEx", retail)
+				self.assertIn("$0.85", retail)
+				self.assertIn("Total (MSRP)", retail)
+
+	def test_quotation_images_use_the_row_then_the_item_master(self):
+		doc = sales_doc(
+			items=[
+				line(image="/files/line.png?size=full&v=1", page_break=1),
+				line(name="row2", idx=2, item_code="PS-24V", ill_section_label="Bath", image=" "),
+				line(name="row3", idx=3, item_code="PS-24V", ill_section_label="Bath"),
+				line(name="row4", idx=4, item_code="NO-IMAGE", ill_section_label="Bath"),
+			],
+		)
+		for folder, columns in (("ill_quotation_image", 8), ("ill_quotation_image__msrp", 6)):
+			with self.subTest(folder=folder), patch.object(
+				FRAPPE, "get_all", return_value=[Doc(name="PS-24V", image="/files/item.png")]
+			) as get_all:
+				html = render(folder, doc)
+				get_all.assert_called_once_with(
+					"Item", filters={"name": ["in", ["NO-IMAGE", "PS-24V"]]}, fields=["name", "image"]
+				)
+				self.assertEqual(html.count('<th class="ill-item-image">Image</th>'), 2)
+				self.assertIn(f'<tr class="ill-section"><td colspan="{columns}">', html)
+				self.assertIn(f'<tr class="ill-section-total"><td colspan="{columns - 1}"', html)
+				rows = re.findall(r'<tr class="ill-line-row[^"]*">(.*?)</tr>', html, re.S)
+				self.assertEqual(len(rows), 4)
+				for row in rows:
+					self.assertTrue(row.lstrip().startswith('<td class="ill-item-image">'))
+					self.assertEqual(row.count("<td"), columns)
+				self.assertIn('src="/files/line.png?size=full&amp;v=1"', rows[0])
+				self.assertIn('src="/files/item.png"', rows[1])
+				self.assertIn('src="/files/item.png"', rows[2])
+				self.assertIn('<td class="ill-item-image"></td>', rows[3])
 
 	def test_shipping_and_shop_documents_carry_no_prices(self):
 		for folder in (

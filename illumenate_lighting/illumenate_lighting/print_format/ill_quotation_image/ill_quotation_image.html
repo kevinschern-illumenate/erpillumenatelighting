@@ -1,0 +1,59 @@
+{# ilL Quotation with item images (dealer pricing). #}
+{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, status_of, facts, parties, priced_items, totals, connected_load, terms, notes, signatures, closing, money, date with context -%}
+{%- set project = ill_print_project(doc) -%}
+{%- set pricing = ill_print_pricing(doc.items) -%}
+{%- set sums = ill_print_totals(doc) -%}
+{%- set status = status_of(quiet=("Open", "Replied", "Submitted")) | trim -%}
+{%- set bill_to = ill_print_address(doc.address_display, doc.customer_address) -%}
+{%- set separate_ship = doc.shipping_address_name and doc.shipping_address_name != doc.customer_address -%}
+{{ styles() }}
+<div class="ill-doc">
+	{{ header("Quotation", doc.name, status,
+		subtitle=(doc.title if doc.title and doc.title not in (doc.customer_name, doc.party_name) else None),
+		tone=("alert" if status in ("Expired", "Lost", "Cancelled") else "")) }}
+
+	{{ facts([
+		("Quote date", date(doc.transaction_date)),
+		("Valid until", date(doc.valid_till)),
+		("Project", project.project),
+		("Fixture schedule", project.schedule),
+		("Prepared by", ill_print_person(doc.owner)),
+		("Payment terms", (doc.payment_terms_template or "")),
+		("Shipping", (doc.shipping_rule or "")),
+		("Quote request", (doc.ill_quote_request or "")),
+	]) }}
+
+	{{ parties([
+		("Bill to" if separate_ship else "Bill to / Ship to", doc.customer_name, bill_to),
+		("Ship to", "", ill_print_address(doc.shipping_address, doc.shipping_address_name) if separate_ship else []),
+		("Attention", doc.contact_display, [doc.contact_email, doc.contact_mobile or doc.contact_phone]),
+	]) }}
+
+	{{ priced_items("dealer", show_images=True) }}
+
+	{%- set savings = pricing.list_total - doc.total if pricing.has_discount else 0 -%}
+	{%- set left -%}
+		{{ connected_load() }}
+		{%- if savings > 0.5 -%}
+		<div class="ill-label">Your pricing</div>
+		<div>List value {{ money(pricing.list_total) }} &nbsp;&middot;&nbsp; you save {{ money(savings) }}</div>
+		{%- endif -%}
+		{%- if doc.payment_schedule and doc.payment_schedule | length > 1 -%}
+		<div class="ill-label">Payment schedule</div>
+		{%- for row in doc.payment_schedule -%}
+		<div class="ill-muted">{{ money(row.payment_amount) }} due {{ date(row.due_date) }}{% if row.description %} &middot; {{ row.description | e }}{% endif %}</div>
+		{%- endfor -%}
+		{%- endif -%}
+	{%- endset -%}
+	{{ totals(sums.rows, ("Total", sums.grand), left=left) }}
+
+
+	{{ terms("sales") }}
+
+	{{ signatures(["Accepted by (signature)", "Printed name and title", "Date", "Purchase order no."],
+		title="Acceptance",
+		intro="To order, sign and return this quotation with your purchase order, or reply to your quote email. Orders are confirmed by an ilLumenate Sales Order acknowledgement.") }}
+
+	{{ closing() }}
+</div>
+

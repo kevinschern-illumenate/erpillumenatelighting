@@ -246,6 +246,7 @@ jinja = {
 		"illumenate_lighting.illumenate_lighting.printing.ill_print_company",
 		"illumenate_lighting.illumenate_lighting.printing.ill_print_contact",
 		"illumenate_lighting.illumenate_lighting.printing.ill_print_discount",
+		"illumenate_lighting.illumenate_lighting.printing.ill_print_item_images",
 		"illumenate_lighting.illumenate_lighting.printing.ill_print_msrp",
 		"illumenate_lighting.illumenate_lighting.printing.ill_print_note",
 		"illumenate_lighting.illumenate_lighting.printing.ill_print_order_line",
