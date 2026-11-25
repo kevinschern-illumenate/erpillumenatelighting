@@ -748,11 +748,19 @@ def build_configured_line(
 		from illumenate_lighting.illumenate_lighting.api.fixture_group_bom import description, snapshot
 		from illumenate_lighting.illumenate_lighting.portal.group_display import run_labels
 
-		artifact = group_artifact
-		configured_doc = frappe.get_doc("ilL-Configured-Group", artifact["configured_group"])
+		configured_doc = frappe.get_doc("ilL-Configured-Group", group_artifact["configured_group"])
 		# The document row names the dealer's runs; the shared Item keeps its neutral description.
 		labels = run_labels({"ill_configurator_request": canonical_json({"selections": selections})})
-		artifact["description"] = description(snapshot(configured_doc), labels)
+		if uses_schedule(parent_doctype):
+			# Quotes and orders sell the group's readable part number: a Product Bundle of
+			# its individually built runs, exactly as converting a schedule line does.
+			try:
+				artifact = _group_order_bundle(configured_doc.name, labels, header, schedule_doc, line_idx_int)
+			except (frappe.ValidationError, ValueError) as exc:
+				return _error(str(exc))
+		else:
+			artifact = group_artifact
+			artifact["description"] = description(snapshot(configured_doc), labels)
 	elif product_type == PRODUCT_TYPE_FIXTURE:
 		configured_name = validation.get("configured_fixture_id")
 		if not configured_name:
@@ -775,9 +783,16 @@ def build_configured_line(
 
 	# LED Sheet v2 MSRP covers the entire bundle, including cables and included power.
 	msrp_unit = artifact.get("msrp_unit") if group_artifact or product_type == PRODUCT_TYPE_SHEET else _resolve_msrp_unit(configured_doc, validation)
-	ensure_configured_item_price(
-		artifact["item_code"], configured_doc, msrp=msrp_unit, price_list=header.get("selling_price_list")
-	)
+	if artifact.get("group_part_number"):
+		# The bundle is priced and branded (selling company) by ensure_order_bundle;
+		# only mirror its MSRP onto this document's price list.
+		from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import mirror_selling_price
+
+		mirror_selling_price(artifact["item_code"], header.get("selling_price_list"), flt(msrp_unit), overwrite=True)
+	else:
+		ensure_configured_item_price(
+			artifact["item_code"], configured_doc, msrp=msrp_unit, price_list=header.get("selling_price_list")
+		)
 	if msrp_unit is not None:
 		artifact["msrp_unit"] = msrp_unit
 
@@ -1387,8 +1402,14 @@ def _write_schedule_line(
 	if artifact.get("configured_group"):
 		from illumenate_lighting.illumenate_lighting.portal.configuration import apply_artifact
 		line = schedule_doc.lines[line_idx] if line_idx is not None else None
-		return apply_artifact(schedule_doc, line, product_type, artifact,
+		line = apply_artifact(schedule_doc, line, product_type, artifact,
 			{"line_id": fixture_type, "location": location, "qty": qty, "notes": notes})
+		if artifact.get("group_part_number"):
+			# The line, the document row and the bundle Item share one part number;
+			# the line keeps the group's pinned engineering BOM, as a portal save does.
+			line.group_part_number = artifact["group_part_number"]
+			line.ill_bom = frappe.db.get_value("ilL-Configured-Group", artifact["configured_group"], "bom")
+		return line
 	from illumenate_lighting.illumenate_lighting.portal.configuration import LINE_PRODUCT_FIELDS
 
 	line = schedule_doc.lines[line_idx] if line_idx is not None else schedule_doc.append("lines", {})
@@ -1663,6 +1684,24 @@ def _bom_unit_cost(bom: str | None) -> float:
 	if not cost or not flt(cost.quantity):
 		return 0.0
 	return flt(cost.total_cost) / flt(cost.quantity)
+
+
+def _group_order_bundle(group_name, labels, header, schedule_doc, line_idx):
+	"""The quote/order artifact for a group: its readable part number as a bundle of built runs.
+
+	A reconfigured schedule line that already holds this group keeps the part
+	number it was quoted under.
+	"""
+	from illumenate_lighting.illumenate_lighting.api.fixture_group_order import ensure_order_bundle
+
+	line = None
+	if schedule_doc is not None and line_idx is not None:
+		existing = schedule_doc.lines[line_idx]
+		if existing.get("configured_group") == group_name:
+			line = existing
+	artifact = ensure_order_bundle(group_name, labels, frappe._dict(header), line=line)
+	artifact["group_part_number"] = artifact["item_code"]
+	return artifact
 
 
 def _built_summary(artifact: dict[str, Any]) -> dict[str, Any]:

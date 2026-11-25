@@ -1,6 +1,6 @@
 # Multi-run group part numbers: PDR and implementation plan
 
-Status: proposed, not implemented. Written 2026-11-25 from a read-only code investigation.
+Status: implemented 2026-11-25. The business confirmed D1 (`-GRP(A1B2)`) and D3 (total square feet, written `48SF`). Sections 3-8 are the original plan; section 9 records what shipped.
 
 ## 1. Problem
 
@@ -59,10 +59,12 @@ All runs in a group share family, template and every spec field (`group_contract
 
 ## 4. Requirements
 
-R1. Group part number = standard prefix for the group's family, then the **total length of all runs in inches**, then `GRP`, then a four-character code. The run-level feed segments (feed type, leader length, end feed or `C`, and `J(hash)`) are replaced by `GRP-XXXX`.
+R1. Group part number = standard prefix for the group's family, then the **total length of all runs in inches**, then `GRP`, then a four-character code. The run-level feed segments (feed type, leader length, end feed or `C`, and `J(hash)`) are replaced by `GRP(XXXX)`.
 
 Example (linear, two runs of 96" and 48"):
-`ILL-ABC-XX-DR-27-HO-FR-SM-WH-144.0-GRP-A1B2`
+`ILL-ABC-XX-DR-27-HO-FR-SM-WH-144.0-GRP(A1B2)`
+
+LED Sheet (two 4 x 6 ft areas): `LS01-DR-30-HO-AD-WH-48SF-GRP(A1B2)`
 
 R2. Length format follows the family's own convention: linear `{mm/25.4:.1f}`; tape/neon int-or-1-dp of manufacturable inches. Sum across every segment of every run. Linear uses requested length (as the standard number does), tape/neon uses manufacturable length (as the standard number does).
 
@@ -133,9 +135,9 @@ Add:
 
 | # | Item | Recommendation |
 |---|---|---|
-| D1 | Separator for the code: `-GRP-A1B2` vs fixture style `-GRP(A1B2)` (fixtures write `J(A1B2)`) | `-GRP-A1B2`. Either is valid in ERPNext; the other is a one-line change. **Confirm with the business.** |
+| D1 | Separator for the code: `-GRP-A1B2` vs fixture style `-GRP(A1B2)` (fixtures write `J(A1B2)`) | **Decided: `-GRP(A1B2)`.** |
 | D2 | Deterministic hash code vs random letters | Deterministic (R3). Same group shares one Item across projects, like standard fixtures, and removes the need for a schedule line. Trade-off: two dealers configuring an identical group share one Item. |
-| D3 | LED Sheet groups have no length | Omit the length token: `...-{finish}-GRP-XXXX`. Alternative: total area in sq ft. **Confirm with the business.** |
+| D3 | LED Sheet groups have no length | **Decided: total area in square feet, written with an `SF` unit** (e.g. `48SF`) so it is not read as inches. |
 | D4 | Old format embedded dealer project/location in a global Item code | Fixed as a side effect; mention in the release notes. |
 | R-a | `assign()` re-numbering existing lines when the format changes | Mitigated by 5.4; covered by a test. |
 | R-b | Prefix not recoverable from stored member build for some family | See 5.1 open point; the invariant test will catch it. |
@@ -149,3 +151,18 @@ Add:
 4. Desk dialog group branch; desk tests and JS test.
 5. Docs.
 6. Manual check on staging: group on a Quotation with no schedule, with a schedule, convert to Sales Order, create Work Orders, print the quote.
+
+## 9. As implemented
+
+- `api/group_part_number.py`:
+  - `run_prefix` reads the shared prefix from a run's own stored part number (every family's member build carries `part_number`). It cuts at that run's length token, computed from the run itself, so a feed segment such as `10` with no type code is never mistaken for the length.
+  - `total_length`, `base` and `for_group` build the number. The code comes from the hash and is lengthened on collision; `accept` lets the bundle reject its own Item when the bundle rows differ.
+  - `assign` keeps any number a line already holds while the group is unchanged, or while that number is already the group's Item.
+  - If a run has no part number, the prefix falls back to the template name.
+- No change to group snapshots or `config_hash`; existing groups keep their identity.
+- `api/fixture_group_order.py`: `ensure_order_bundle(group_name, labels=None, target_doc=None, line=None)` and `_part_number(group, build, rows, line=None)`.
+- `api/desk_configurator.py`:
+  - On a Quotation or Sales Order the group branch sells the bundle (`_group_order_bundle`). The bundle keeps the selling-company brand and only mirrors its MSRP to the document's price list.
+  - The schedule line stores the same `group_part_number` and keeps the group's pinned engineering BOM.
+  - Purchase Order / RFQ / Material Request still use the internal group Item. Work Orders still exclude groups.
+- Tests: `tests/portal_unit/test_group_order_bundles.py` (`GroupPartNumber`, the no-schedule case) and `tests/portal_unit/test_desk_configurator_save.py` (`DeskGroupPartNumber`).
