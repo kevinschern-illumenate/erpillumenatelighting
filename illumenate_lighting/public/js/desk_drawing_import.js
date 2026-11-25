@@ -64,7 +64,13 @@
 		var body = rows.map(function (row) {
 			return '<tr><td>' + esc(row.id) + '</td><td>' + esc(row.fixture_type) + '</td><td>' + esc(row.style || row.summary || row.family) +
 				'</td><td>' + esc(row.drawn_length_in) + '</td><td>' + esc(row.server_length_in) + '</td><td>' + esc(row.action) +
-				'</td><td>' + esc(row.status) + '</td><td>' + esc((row.messages || []).join(' · ')) + (row.status === 'needs_choice' ? choiceInputs(row) : '') + '</td></tr>';
+				'</td><td>' + esc(row.status) + '</td><td>' + esc((row.messages || []).join(' · ')) + (row.status === 'needs_choice' ? choiceInputs(row) : '') + '</td></tr>' +
+				// A multi-run group is one line; its runs (a stacked run once per copy) follow it.
+				(row.members || []).map(function (member) {
+					return '<tr class="text-muted"><td></td><td>' + esc(member.label) + '</td><td>' + esc(member.run || '') + '</td><td>' +
+						esc(member.drawn_length_in) + '</td><td>' + esc(member.server_length_in) + '</td><td></td><td></td><td>' +
+						esc(__('{0} W on {1} circuit(s)', [member.watts, member.circuits])) + '</td></tr>';
+				}).join('');
 		}).join('');
 		var warnings = (message.warnings || []).concat(message.blocking || []).map(function (text) {
 			return '<div class="alert alert-warning">' + esc(text) + '</div>';

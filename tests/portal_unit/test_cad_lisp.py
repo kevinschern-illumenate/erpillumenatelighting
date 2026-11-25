@@ -546,15 +546,50 @@ class CopiedEntities(unittest.TestCase):
 
 	def test_a_copied_group_lists_the_copies_of_its_runs(self):
 		d = self.drawing
-		run = {"kind": "RUN", "id": "L1-01", "type": "L1", "copies": "4", "label": "Shelf", "line_key": "row-1"}
+		run = {
+			"kind": "RUN",
+			"id": "L1-01",
+			"type": "L1",
+			"copies": "4",
+			"label": "Shelf",
+			"line_key": "row-1",
+		}
 		original = d.polyline("1A", [(0, 0), (96, 0)], {**run, "self": "1A"}, closed=False)
-		group = {"kind": "GROUP", "id": "G-01", "type": "L1", "runs": "L1-01", "include": "1", "line_key": "row-1"}
-		d.insert("1B", "IL-GROUPTAG", (48.0, -10.0, 0.0), 1.0, {**group, "self": "1B"}, [("TAG", "G-01", (48.0, -10.0, 0.0), 0.1)])
+		group = {
+			"kind": "GROUP",
+			"id": "G-01",
+			"type": "L1",
+			"runs": "L1-01",
+			"include": "1",
+			"line_key": "row-1",
+		}
+		d.insert(
+			"1B",
+			"IL-GROUPTAG",
+			(48.0, -10.0, 0.0),
+			1.0,
+			{**group, "self": "1B"},
+			[("TAG", "G-01", (48.0, -10.0, 0.0), 0.1)],
+		)
 		# ARRAY of the bay: two more runs and two more tags, each tag under its own run.
 		near = d.polyline("2A", [(0, 200), (96, 200)], {**run, "self": "1A"}, closed=False)
 		far = d.polyline("3A", [(0, 400), (96, 400)], {**run, "self": "1A"}, closed=False)
-		far_tag = d.insert("3B", "IL-GROUPTAG", (48.0, 390.0, 0.0), 1.0, {**group, "self": "1B"}, [("TAG", "G-01", (48.0, 390.0, 0.0), 0.1)])
-		near_tag = d.insert("2B", "IL-GROUPTAG", (48.0, 190.0, 0.0), 1.0, {**group, "self": "1B"}, [("TAG", "G-01", (48.0, 190.0, 0.0), 0.1)])
+		far_tag = d.insert(
+			"3B",
+			"IL-GROUPTAG",
+			(48.0, 390.0, 0.0),
+			1.0,
+			{**group, "self": "1B"},
+			[("TAG", "G-01", (48.0, 390.0, 0.0), 0.1)],
+		)
+		near_tag = d.insert(
+			"2B",
+			"IL-GROUPTAG",
+			(48.0, 190.0, 0.0),
+			1.0,
+			{**group, "self": "1B"},
+			[("TAG", "G-01", (48.0, 190.0, 0.0), 0.1)],
+		)
 
 		self.lisp.call("il-fix-copies", None)
 
@@ -574,7 +609,15 @@ class CopiedEntities(unittest.TestCase):
 			"IL-GROUPTAG",
 			(0.0, 0.0, 0.0),
 			1.0,
-			{"kind": "GROUP", "id": "G-01", "type": "L1", "runs": "L1-01,L1-02", "include": "0", "allocation": "per_run", "override": "18"},
+			{
+				"kind": "GROUP",
+				"id": "G-01",
+				"type": "L1",
+				"runs": "L1-01,L1-02",
+				"include": "0",
+				"allocation": "per_run",
+				"override": "18",
+			},
 		)
 		group = alist(self.lisp.call("il-group-from-entity", tag))
 		self.assertEqual((group["id"], group["fixture_type"], group["handle"]), ("G-01", "L1", "1B"))
@@ -1139,7 +1182,9 @@ class Model(unittest.TestCase):
 	def grouped(self):
 		"""The model with L1-01 stacked four high in G-01 and a wire into the group's tag."""
 		runs = [
-			to_alist({**alist(item), "copies": 4.0, "label": "Shelf"}) if alist(item)["id"] == "L1-01" else item
+			to_alist({**alist(item), "copies": 4.0, "label": "Shelf"})
+			if alist(item)["id"] == "L1-01"
+			else item
 			for item in self.runs
 		]
 		group = to_alist(
@@ -1191,13 +1236,17 @@ class Model(unittest.TestCase):
 	def test_stacked_copies_load_the_supply_and_group_wires_feed_members(self):
 		codes = {(issue["code"], issue["ref"]) for issue in self.issues()}
 		self.model = self.grouped()
-		grouped = [issue for issue in self.issues() if issue["ref"] == "PS-01" and issue["code"] == "PSU_OVERLOAD"]
+		grouped = [
+			issue for issue in self.issues() if issue["ref"] == "PS-01" and issue["code"] == "PSU_OVERLOAD"
+		]
 		self.assertTrue(grouped)
 		self.assertIn("W on 76.8 W usable", grouped[0]["text"])
 		self.assertNotIn(("COPIES_NOT_IN_GROUP", "L1-01"), {(i["code"], i["ref"]) for i in self.issues()})
 		self.assertIn(("PSU_OVERLOAD", "PS-01"), codes)  # Already over before the stack.
 		values = alist(self.model)
-		values["wires"] = lst([to_alist({"id": "W-02", "from": "CAB-1", "to": "G-01", "kind": "lv", "length_in": 12.0})])
+		values["wires"] = lst(
+			[to_alist({"id": "W-02", "from": "CAB-1", "to": "G-01", "kind": "lv", "length_in": 12.0})]
+		)
 		values["psus"] = lst([])
 		model = to_alist(values)
 		self.assertIs(self.lisp.call("il-run-fed-p", model, "L1-01"), mini_lisp.T)
@@ -1209,13 +1258,21 @@ class Model(unittest.TestCase):
 				"schema": "ilq-receipt/1",
 				"runs": [],
 				"groups": [
-					{"id": "G-01", "line_key": "LK7", "configured_name": "GRP-1", "config_hash": "h", "part_number": "GPN-1"}
+					{
+						"id": "G-01",
+						"line_key": "LK7",
+						"configured_name": "GRP-1",
+						"config_hash": "h",
+						"part_number": "GPN-1",
+					}
 				],
 			}
 		)
 		index = self.lisp.call("il-receipt-groups", receipt)
 		group = alist(self.lisp.call("il-group-with-receipt", to_alist({"id": "G-01"}), index))
-		self.assertEqual((group["line_key"], group["part_number"], group["config_hash"]), ("LK7", "GPN-1", "h"))
+		self.assertEqual(
+			(group["line_key"], group["part_number"], group["config_hash"]), ("LK7", "GPN-1", "h")
+		)
 		other = alist(self.lisp.call("il-group-with-receipt", to_alist({"id": "G-02"}), index))
 		self.assertNotIn("line_key", other)
 		self.assertIsNone(self.lisp.call("il-receipt-groups", from_python_json({"schema": "other"})))

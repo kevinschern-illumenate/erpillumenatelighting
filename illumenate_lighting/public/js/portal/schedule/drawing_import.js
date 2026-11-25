@@ -269,6 +269,24 @@ var DrawingImport = (function () {
 		return values;
 	}
 
+	// A multi-run group is one schedule line; its runs (a stacked run once per copy) follow its row.
+	function memberRows(body, entry) {
+		(entry.members || []).forEach(function (member) {
+			var tr = document.createElement('tr');
+			tr.className = 'text-muted';
+			tr.setAttribute('data-drawing-member', entry.id);
+			cell(tr, '');
+			cell(tr, member.label);
+			cell(tr, member.run ? format(scheduleText("Drawn as {0}"), member.run) : '');
+			cell(tr, member.drawn_length_in);
+			cell(tr, member.server_length_in);
+			cell(tr, '');
+			cell(tr, '');
+			cell(tr, format(scheduleText("{0} W on {1} circuit(s)"), member.watts, member.circuits));
+			body.appendChild(tr);
+		});
+	}
+
 	function renderRows(message) {
 		var previous = choices();
 		var remembered = message.previous_choices || {};
@@ -290,7 +308,9 @@ var DrawingImport = (function () {
 			badge(cell(tr, ''), STATUS[entry.status] || STATUS.error);
 			var details = cell(tr, (entry.messages || []).filter(Boolean).join(' · '));
 			if (entry.status === 'needs_choice') choiceInputs(details, entry, previous, remembered);
+			if (entry.kind === 'group') tr.setAttribute('data-drawing-kind', 'group');
 			body.appendChild(tr);
+			if (entry.kind === 'group') memberRows(body, entry);
 		});
 		var counts = message.counts || {};
 		$('#importDrawingCounts').text(format(

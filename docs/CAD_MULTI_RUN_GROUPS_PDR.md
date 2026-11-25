@@ -1,6 +1,17 @@
 # Multi-Run Groups in the AutoCAD Draw-to-Quote Tool: PDR and Implementation Plan
 
-2026-11-25 · branch `claude/autocad-multi-run-groups-for8vj` · status: **proposal, no code changed**
+2026-11-25 · branch `claude/autocad-multi-run-groups-for8vj` · status: **implemented** (see "Drawn
+multi-run groups" in `docs/CAD_TOOLKIT_IMPLEMENTATION.md`; staging acceptance still to run)
+
+Deviations from this plan, decided while building it:
+
+- Style keys a group does not share (such as a tape style's `feed_type`) are reported on the row as
+  "Not used by a group" instead of being an error (5.3.3). The portal group editor drops them silently;
+  making them errors would refuse most existing presets.
+- Group checks are run by the import itself and left out of its catalog-based server checks, so a
+  group's problems show once whether or not the catalog builds.
+- No new layer: the group tag is on `E-ANNO-TAGS` with the other tags.
+- `ILCONNECT` and `ILPSU` were not changed to accept a group tag (5.1); select the runs as before.
 
 Audience: the engineer (or chat bot) who implements this. Every claim about current behaviour below was read
 from the code at HEAD `5e146b1`; file paths are repo-relative. Nothing was run: the unit suites, the AutoLISP
