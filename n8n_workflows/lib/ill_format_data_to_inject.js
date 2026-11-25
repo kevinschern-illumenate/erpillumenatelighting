@@ -573,29 +573,43 @@ const mappingScript = `<script>
       }
 
       // --- E3. EXTRA DIMENSION IMAGES (Spec Gallery, section "Dimensions") ---
-      // The first .dimension-item keeps dimensions_image (#spec-dims-img). #dimension-item is the
-      // pattern for the extra ones: copied once per Dimensions row (title in #dimension-title,
-      // hidden when empty; image in #spec-dims-img-other), then hidden. No rows: stays hidden.
+      // The first .dimension-item keeps dimensions_image (#spec-dims-img). #dimension-item
+      // (.dimension-item.other) is the pattern for the extra ones: one copy per title, its
+      // #dimension-title (hidden when empty) over that title's drawings, stacked inside it, one
+      // #spec-dims-img-other copy each (owner, 2026-11-25: they ran across the page when every
+      // drawing had its own item). A row without a title joins the item before it. Then hidden.
       const dimTemplate = document.getElementById('dimension-item');
       if (dimTemplate) {
           const rows = (Array.isArray(data.spec_gallery) ? data.spec_gallery : [])
               .filter(row => row.section === 'Dimensions' && row.image);
-          let anchor = dimTemplate;
+          const groups = [];
           rows.forEach(row => {
+              const title = String(row.title || '').trim();
+              const last = groups[groups.length - 1];
+              if (last && (!title || title === last.title)) last.images.push(row.image);
+              else groups.push({ title, images: [row.image] });
+          });
+          let anchor = dimTemplate;
+          groups.forEach(group => {
               const item = dimTemplate.cloneNode(true);
               item.style.display = '';
               item.removeAttribute('id');
               const titleEl = item.querySelector('#dimension-title');
               if (titleEl) {
                   titleEl.removeAttribute('id');
-                  if (row.title) { titleEl.innerText = row.title; } else { titleEl.style.display = 'none'; }
+                  if (group.title) { titleEl.innerText = group.title; } else { titleEl.style.display = 'none'; }
               }
-              const imgEl = item.querySelector('#spec-dims-img-other');
-              if (imgEl) {
-                  imgEl.removeAttribute('id');
-                  imgEl.src = row.image;
-                  imgEl.removeAttribute('srcset');
-                  imgEl.removeAttribute('loading');
+              const imgPattern = item.querySelector('#spec-dims-img-other');
+              if (imgPattern) {
+                  imgPattern.removeAttribute('id');
+                  group.images.forEach(url => {
+                      const imgEl = imgPattern.cloneNode(false);
+                      imgEl.src = url;
+                      imgEl.removeAttribute('srcset');
+                      imgEl.removeAttribute('loading');
+                      imgPattern.parentNode.insertBefore(imgEl, imgPattern);
+                  });
+                  imgPattern.remove();
               }
               anchor.parentNode.insertBefore(item, anchor.nextSibling);
               anchor = item;
