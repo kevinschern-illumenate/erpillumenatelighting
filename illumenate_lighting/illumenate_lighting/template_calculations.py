@@ -1797,6 +1797,10 @@ class TemplateCalculator:
 			(11, "Feed Direction", "End Feed Length", 10),
 		]
 
+		# The template's own "Is Required" choices are kept (owner, 2026-11-25: unchecked Start/End
+		# Feed Direction came back as required on every save); a new step is required.
+		existing_is_required = self._get_existing_is_required()
+
 		# Clear existing and rebuild
 		self.configurator_options = []
 
@@ -1809,7 +1813,7 @@ class TemplateCalculator:
 						"option_step": step,
 						"option_type": option_type,
 						"option_label": label,
-						"is_required": 1,
+						"is_required": existing_is_required.get(step, 1),
 						"depends_on_step": depends_on,
 						"allowed_values_json": frappe.as_json(allowed_values),
 					},
