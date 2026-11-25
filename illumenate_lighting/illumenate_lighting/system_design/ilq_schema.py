@@ -18,6 +18,8 @@ SCHEMA = "ilq/2"
 SCHEMA_PATH = Path(__file__).resolve().parents[2] / "public/system_designer/schema/ilq.schema.json"
 MAX_BYTES = 5 * 1024 * 1024
 MAX_RUNS = 1000
+# A multi-run group's member limit, copies included (the portal group engine's, ``group_contract``).
+MAX_GROUP_MEMBERS = 12
 
 
 class PackageError(ValueError):
@@ -45,7 +47,7 @@ def schema_problems(package):
 
 
 def reference_problems(package):
-	"""Unique ids, known rooms/cabinets/runs, one handle per run, kits with their tape."""
+	"""Unique ids, known rooms/cabinets/runs, one handle per run, kits with their tape, groups."""
 	problems = []
 
 	def unique(section):
@@ -131,7 +133,36 @@ def reference_problems(package):
 					f"sheets/{index}/scale/status: Drawing says its scale is verified "
 					f"but sheet {sheet.get('id')} is {status}"
 				)
-	ends = runs | psus | cabinets | controls
+	groups = unique("groups")
+	for group_id in groups & (runs | psus | cabinets | controls):
+		problems.append(f"groups: Group id is used elsewhere: {group_id}")
+	copies = {run.get("id"): run.get("copies") or 1 for run in package.get("runs") or []}
+	grouped = set()
+	for index, group in enumerate(package.get("groups") or []):
+		if group.get("room") and group["room"] not in rooms:
+			problems.append(f"groups/{index}/room: Unknown room: {group['room']}")
+		known_sheet(group.get("sheet"), f"groups/{index}/sheet")
+		handle = str(group.get("handle") or "").upper()
+		if handle in handles:
+			problems.append(f"groups/{index}/handle: Duplicate handle: {group.get('handle')}")
+		handles.add(handle)
+		members = 0
+		for position, run in enumerate(group.get("runs") or []):
+			if run not in runs:
+				problems.append(f"groups/{index}/runs/{position}: Unknown run: {run}")
+			elif run in grouped:
+				problems.append(f"groups/{index}/runs/{position}: Run is in two groups: {run}")
+			grouped.add(run)
+			members += copies.get(run, 1)
+		if members > MAX_GROUP_MEMBERS:
+			problems.append(
+				f"groups/{index}/runs: A group holds at most {MAX_GROUP_MEMBERS} runs, copies included; "
+				f"this one has {members}"
+			)
+	for index, run in enumerate(package.get("runs") or []):
+		if (run.get("copies") or 1) > 1 and run.get("id") not in grouped:
+			problems.append(f"runs/{index}/copies: Stacked run {run.get('id')} is in no group")
+	ends = runs | psus | cabinets | controls | groups
 	for index, wire in enumerate(package.get("wire_paths") or []):
 		for end in ("from", "to"):
 			if wire.get(end) not in ends:
@@ -177,6 +208,7 @@ def with_defaults(package):
 		"zones",
 		"sheets",
 		"counts",
+		"groups",
 	):
 		package.setdefault(section, [])
 	package.setdefault("source", derived_source(package))
@@ -196,6 +228,11 @@ def with_defaults(package):
 		cabinet.setdefault("access_note", "")
 	for psu in package["psus"]:
 		psu.setdefault("runs", [])
+	for group in package["groups"]:
+		group.setdefault("erp", {})
+		power = group.setdefault("power", {})
+		power.setdefault("include_supplies", True)
+		power.setdefault("allocation", "grouped")
 	package["check"].setdefault("overrides", [])
 	for run in package["runs"]:
 		run["style"].setdefault("selections", {})
@@ -205,6 +242,7 @@ def with_defaults(package):
 		run["feed"].setdefault("method", "end")
 		run["feed"].setdefault("point_handles", [])
 		run.setdefault("erp", {})
+		run.setdefault("copies", 1)
 		for segment in run["segments"]:
 			segment.setdefault("end_type", "ENDCAP")
 	return package

@@ -127,6 +127,13 @@
    ("ATTDEF" "TAG" 0.0 -0.047 0.0938 "" T "E-ANNO-TAGS" "center")
    ("ATTDEF" "LOAD" 0.0 -0.33 0.0938 "" T "E-ANNO-TAGS" "center")
    ("ATTDEF" "MODEL" 0.0 -0.48 0.0938 "" nil "E-ANNO-TAGS" "center"))
+  ("IL-GROUPTAG" "Multi-run group tag: id, Type and run count"
+   ("PLINE" (-0.34 -0.12 0.34 -0.12 0.34 0.12 -0.34 0.12) T "E-ANNO-TAGS")
+   ("LINE" -0.28 -0.12 -0.28 0.12 "E-ANNO-TAGS")
+   ("LINE" 0.28 -0.12 0.28 0.12 "E-ANNO-TAGS")
+   ("ATTDEF" "TAG" 0.0 -0.047 0.0938 "" T "E-ANNO-TAGS" "center")
+   ("ATTDEF" "RUNS" 0.0 -0.27 0.0938 "" T "E-ANNO-TAGS" "center")
+   ("ATTDEF" "PART" 0.0 -0.42 0.0938 "" nil "E-ANNO-TAGS" "center"))
   ("IL-WIRETAG" "Wire tag"
    ("CIRCLE" 0.0 0.0 0.12 "E-ANNO-TAGS")
    ("ATTDEF" "TAG" 0.0 -0.047 0.0938 "" T "E-ANNO-TAGS" "center")

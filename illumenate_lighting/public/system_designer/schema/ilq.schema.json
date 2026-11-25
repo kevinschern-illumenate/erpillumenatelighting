@@ -623,6 +623,23 @@
        }
       ]
      },
+     "copies": {
+      "default": 1,
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 12
+     },
+     "label": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 60
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "erp": {
       "default": {},
       "type": "object",
@@ -1051,6 +1068,163 @@
      "id",
      "name",
      "method"
+    ],
+    "additionalProperties": false
+   }
+  },
+  "groups": {
+   "default": [],
+   "maxItems": 500,
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$"
+     },
+     "handle": {
+      "type": "string",
+      "pattern": "^[0-9A-Fa-f]{1,16}$"
+     },
+     "fixture_type": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 140
+     },
+     "room": {
+      "anyOf": [
+       {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "sheet": {
+      "anyOf": [
+       {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "location": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 140
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "runs": {
+      "minItems": 1,
+      "maxItems": 12,
+      "type": "array",
+      "items": {
+       "type": "string",
+       "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$"
+      }
+     },
+     "power": {
+      "default": {
+       "include_supplies": true,
+       "allocation": "grouped"
+      },
+      "type": "object",
+      "properties": {
+       "include_supplies": {
+        "default": true,
+        "type": "boolean"
+       },
+       "allocation": {
+        "default": "grouped",
+        "type": "string",
+        "enum": [
+         "per_run",
+         "grouped"
+        ]
+       },
+       "override_max_run_ft": {
+        "anyOf": [
+         {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 10000
+         },
+         {
+          "type": "null"
+         }
+        ]
+       }
+      },
+      "additionalProperties": false
+     },
+     "notes": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 1000
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "erp": {
+      "default": {},
+      "type": "object",
+      "properties": {
+       "line_key": {
+        "anyOf": [
+         {
+          "type": "string",
+          "maxLength": 140
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "configured_name": {
+        "anyOf": [
+         {
+          "type": "string",
+          "maxLength": 140
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "config_hash": {
+        "anyOf": [
+         {
+          "type": "string",
+          "maxLength": 140
+         },
+         {
+          "type": "null"
+         }
+        ]
+       }
+      },
+      "additionalProperties": false
+     }
+    },
+    "required": [
+     "id",
+     "handle",
+     "fixture_type",
+     "runs"
     ],
     "additionalProperties": false
    }

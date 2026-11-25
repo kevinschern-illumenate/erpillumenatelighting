@@ -254,3 +254,26 @@ test('previous imports are listed with their tool and scale', () => {
   assert.match($('#importDrawingHistoryRows').text(), /dxf dxf-1/);
   assert.match($('#importDrawingHistoryRows').text(), /confirmed/);
 });
+
+test('a multi-run group is one row followed by its runs, and its open choice is keyed by the group', async () => {
+  const { w, $, requests } = page();
+  const group = {
+    id: 'G-01', kind: 'group', fixture_type: 'T1', style: 'led-hd-sw', drawn_length_in: 384, server_length_in: 380,
+    action: 'add', status: 'needs_choice', messages: ['Choose finish for this group'], parts: [{ part: 'group', missing: ['finish'] }],
+    members: [
+      { label: 'Shelf 1', run: 'T1-01', drawn_length_in: 96, server_length_in: 95, watts: 10.5, circuits: 1 },
+      { label: '<b>Shelf 2</b>', run: 'T1-01', drawn_length_in: 96, server_length_in: 95, watts: 10.5, circuits: 1 },
+    ],
+  };
+  respond(await chosen(w, requests), { ...PREVIEW, rows: [group], other_lines: [], removals: [], counts: { ...PREVIEW.counts, ok: 0, needs_choice: 1 } });
+  assert.equal($('#importDrawingRows tr[data-drawing-kind="group"]').length, 1);
+  const members = $('#importDrawingRows tr[data-drawing-member="G-01"]');
+  assert.equal(members.length, 2);
+  assert.match(members.first().text(), /Shelf 1/);
+  assert.match(members.first().text(), /Drawn as T1-01/);
+  assert.match(members.first().text(), /10.5 W on 1 circuit\(s\)/);
+  assert.equal($('#importDrawingRows b').length, 0);
+  $('#importDrawingRows input[data-choice-key="finish"]').val('White');
+  $('#importDrawingRefresh').trigger('click');
+  assert.deepEqual(JSON.parse(requests.shift().args.choices), { 'G-01': { finish: 'White' } });
+});

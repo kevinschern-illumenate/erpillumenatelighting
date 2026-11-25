@@ -65,6 +65,17 @@ Golden cases and fixtures live with the System Designer's so Python, TypeScript 
   sheet's scale is `verified` after ILSCALE, else `declared` (AutoCAD drawings always have units), so it
   always agrees with `drawing.scale_verified`. The content hash (`il-package-content`) leaves source,
   sheets and layouts out, so hashes match 0.4.x for an unchanged drawing.
+- **Multi-run groups (0.6.0).** A group is runs quoted as one multi-run group line (the portal's
+  `ilL-Configured-Group`): one schedule Type, room, style and power plan, shared supplies on their own
+  lines. `ILGROUP` gathers drawn runs under a group tag (`IL-GROUPTAG`, XData kind `GROUP`, run ids in
+  `runs`); `ILSTACK` makes one drawn run stand for N identical runs (`copies`, label stem `label`), for
+  shelves stacked above each other, and gives it a group when it has none. The package writes `groups`
+  and a run's `copies`/`label` only when used, so drawings without groups keep their 0.5.x content
+  hash. ILCHECK adds `GROUP_*` and `COPIES_NOT_IN_GROUP`; PSU loads count every stacked copy. ILUPDATE
+  gives a stacked run in no group its own group, drops deleted runs from group lists and keeps a
+  group's room with its first run. A copied group tag lists the nearest copy of each of its runs, so
+  ARRAY of a whole bay (runs and tag) makes independent groups. ILRECEIPT stamps each group's line key
+  and part number; ILOUT lists each group's runs and shared supplies.
 - **Minimum toolkit version.** A catalog's optional `settings.min_toolkit_version` (dotted integers,
   `il-version<`) newer than `*il-version*` prints a warning on ILCATALOG and the first catalog load (and in
   ILVERSION) to download the current toolkit from the portal Resources page; ILCHECK adds the warning
@@ -75,7 +86,7 @@ Golden cases and fixtures live with the System Designer's so Python, TypeScript 
 ## Commands
 
 `ILSETUP` `ILCATALOG` `ILSTYLE` `ILTAPE` `ILCONVERT` `ILJUMPER` `ILFEED` `ILSCALE` `ILROOM` `ILCAB` `ILPSU`
-`ILCONNECT` `ILCTRL` `ILZONE` `ILDMX` `ILWIRE` `ILOTHER` `ILOVERRIDE` `ILUPDATE` `ILCHECK` `ILQUOTE` `ILRECEIPT` `ILOUT` `ILRISER`
+`ILCONNECT` `ILGROUP` `ILSTACK` `ILCTRL` `ILZONE` `ILDMX` `ILWIRE` `ILOTHER` `ILOVERRIDE` `ILUPDATE` `ILCHECK` `ILQUOTE` `ILRECEIPT` `ILOUT` `ILRISER`
 `ILSTRIP` `ILVERSION` `ILHELP` (see `ILHELP` in AutoCAD).
 
 ## Release checklist

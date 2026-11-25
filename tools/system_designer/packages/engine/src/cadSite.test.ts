@@ -129,3 +129,33 @@ describe('applying the drawing site to a new design (draw-to-quote 2.3)', () => 
     expect(result.unmatchedLines).toEqual(['K9']);
   });
 });
+
+describe('a drawn multi-run group (one schedule line, several runs)', () => {
+  it('gives every run of the group line its room, measured home run and feed', () => {
+    const target = design();
+    const groupRun = (copy: number, runIndex: number) => ({
+      ...run('G1', 'space-kitchen'),
+      key: `G1:${copy}:${runIndex}`,
+      buildIndex: copy,
+      runIndex,
+      source: { kind: 'configured' as const, doctype: 'ilL-Configured-Group' as const, name: 'GRP-1', configHash: 'g' },
+    });
+    target.runs.push(groupRun(1, 1), groupRun(1, 2), groupRun(1, 3), groupRun(1, 4));
+    const site = CadSiteSchema.parse({
+      ...SITE,
+      lines: {
+        G1: { runId: 'G-01', groupRuns: ['T1-01'], room: 'Primary Bath', cabinet: 'CAB-2', feedMethod: 'end', homeRunLengthFt: 20 },
+      },
+    });
+    const result = applyCadSite(target, site);
+    const members = target.runs.filter((item) => item.lineKey === 'G1');
+    expect(members).toHaveLength(4);
+    for (const member of members) {
+      expect(member.spaceId).toBe('space-primary-bath');
+      expect(member.homeRunLengthFt).toBe(20);
+      expect(member.homeRunProvenance).toBe('measured');
+    }
+    expect(result.runs).toBe(4);
+    expect(result.unmatchedLines).toEqual([]);
+  });
+});

@@ -51,6 +51,8 @@ COMMANDS = (
 	"ILCAB",
 	"ILPSU",
 	"ILCONNECT",
+	"ILGROUP",
+	"ILSTACK",
 	"ILCTRL",
 	"ILZONE",
 	"ILDMX",

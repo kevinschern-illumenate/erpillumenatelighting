@@ -84,5 +84,31 @@ class IlqContract(unittest.TestCase):
 		self.assertEqual({run["style"]["family"] for run in package["runs"]}, {"LED Tape", "LED Neon", "COB Tape", "Extrusion Kit", "Linear Fixture"})
 
 
+	def test_groups_and_stacked_copies(self):
+		package = self.module.parse_package(fixture("valid/group-stack.json"))
+		self.assertEqual(package["runs"][0]["copies"], 4)
+		self.assertEqual(package["groups"][0]["power"], {"include_supplies": True, "allocation": "grouped"})
+		self.assertEqual(package["groups"][0]["erp"], {})
+		# Packages without groups get the defaults, so the import reads every key the same way.
+		plain = self.module.parse_package(fixture("valid/minimal.json"))
+		self.assertEqual(plain["groups"], [])
+		self.assertEqual(plain["runs"][0]["copies"], 1)
+		for name, problem in (
+			("group-unknown-run.json", "groups/0/runs/1: Unknown run: T9-99"),
+			("group-run-twice.json", "groups/1/runs/0: Run is in two groups: T1-01"),
+			("group-too-many.json", "groups/0/runs: A group holds at most 12 runs, copies included"),
+			("group-copies-without-group.json", "runs/0/copies: Stacked run T1-01 is in no group"),
+			("group-id-clash.json", "groups: Group id is used elsewhere: PS-01"),
+		):
+			with self.subTest(name):
+				problems = self.module.validate_package(fixture(f"invalid/{name}"))
+				self.assertTrue(any(p.startswith(problem) for p in problems), problems)
+
+	def test_a_wire_may_end_at_a_group(self):
+		package = fixture("valid/group-stack.json")
+		self.assertEqual(package["wire_paths"][0]["to"], "G-01")
+		self.assertEqual(self.module.validate_package(package), [])
+
+
 if __name__ == "__main__":
 	unittest.main()

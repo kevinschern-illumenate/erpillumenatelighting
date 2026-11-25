@@ -544,6 +544,87 @@ class CopiedEntities(unittest.TestCase):
 		self.lisp.call("il-fix-copies", None)
 		self.assertEqual(before, {ename: dict(d.xdata[ename]) for ename in d.order})
 
+	def test_a_copied_group_lists_the_copies_of_its_runs(self):
+		d = self.drawing
+		run = {
+			"kind": "RUN",
+			"id": "L1-01",
+			"type": "L1",
+			"copies": "4",
+			"label": "Shelf",
+			"line_key": "row-1",
+		}
+		original = d.polyline("1A", [(0, 0), (96, 0)], {**run, "self": "1A"}, closed=False)
+		group = {
+			"kind": "GROUP",
+			"id": "G-01",
+			"type": "L1",
+			"runs": "L1-01",
+			"include": "1",
+			"line_key": "row-1",
+		}
+		d.insert(
+			"1B",
+			"IL-GROUPTAG",
+			(48.0, -10.0, 0.0),
+			1.0,
+			{**group, "self": "1B"},
+			[("TAG", "G-01", (48.0, -10.0, 0.0), 0.1)],
+		)
+		# ARRAY of the bay: two more runs and two more tags, each tag under its own run.
+		near = d.polyline("2A", [(0, 200), (96, 200)], {**run, "self": "1A"}, closed=False)
+		far = d.polyline("3A", [(0, 400), (96, 400)], {**run, "self": "1A"}, closed=False)
+		far_tag = d.insert(
+			"3B",
+			"IL-GROUPTAG",
+			(48.0, 390.0, 0.0),
+			1.0,
+			{**group, "self": "1B"},
+			[("TAG", "G-01", (48.0, 390.0, 0.0), 0.1)],
+		)
+		near_tag = d.insert(
+			"2B",
+			"IL-GROUPTAG",
+			(48.0, 190.0, 0.0),
+			1.0,
+			{**group, "self": "1B"},
+			[("TAG", "G-01", (48.0, 190.0, 0.0), 0.1)],
+		)
+
+		self.lisp.call("il-fix-copies", None)
+
+		self.assertEqual((d.xdata[original]["id"], d.xdata[d.handent("1B")]["runs"]), ("L1-01", "L1-01"))
+		self.assertEqual(d.xdata[d.handent("1B")]["line_key"], "row-1")
+		for tag, copy in ((near_tag, near), (far_tag, far)):
+			self.assertEqual(d.xdata[tag]["runs"], d.xdata[copy]["id"])
+			self.assertNotIn("line_key", d.xdata[tag])
+			self.assertEqual(d.value(d.attribute(tag, "TAG"), 1), d.xdata[tag]["id"])
+			self.assertEqual(d.xdata[copy]["copies"], "4")
+		self.assertEqual({d.xdata[near_tag]["id"], d.xdata[far_tag]["id"]}, {"G-02", "G-03"})
+
+	def test_a_group_tag_reads_as_a_model_group(self):
+		d = self.drawing
+		tag = d.insert(
+			"1B",
+			"IL-GROUPTAG",
+			(0.0, 0.0, 0.0),
+			1.0,
+			{
+				"kind": "GROUP",
+				"id": "G-01",
+				"type": "L1",
+				"runs": "L1-01,L1-02",
+				"include": "0",
+				"allocation": "per_run",
+				"override": "18",
+			},
+		)
+		group = alist(self.lisp.call("il-group-from-entity", tag))
+		self.assertEqual((group["id"], group["fixture_type"], group["handle"]), ("G-01", "L1", "1B"))
+		self.assertEqual(plain(group["runs"]), ["L1-01", "L1-02"])
+		self.assertEqual((group["include"], group["allocation"], group["override"]), ("0", "per_run", 18))
+		self.assertIsNone(self.lisp.call("il-group-include-p", self.lisp.call("il-group-from-entity", tag)))
+
 	def test_runs_know_their_layout(self):
 		d = self.drawing
 		paper = d.add(
@@ -1097,6 +1178,104 @@ class Model(unittest.TestCase):
 		)
 		untouched = alist(self.lisp.call("il-run-with-receipt", self.runs[1], index))
 		self.assertNotIn("line_key", untouched)
+
+	def grouped(self):
+		"""The model with L1-01 stacked four high in G-01 and a wire into the group's tag."""
+		runs = [
+			to_alist({**alist(item), "copies": 4.0, "label": "Shelf"})
+			if alist(item)["id"] == "L1-01"
+			else item
+			for item in self.runs
+		]
+		group = to_alist(
+			{
+				"id": "G-01",
+				"handle": "9F",
+				"fixture_type": "L1",
+				"room": "Z-Kitchen",
+				"runs": lst(["L1-01"]),
+				"include": "1",
+				"allocation": "grouped",
+			}
+		)
+		values = alist(self.model)
+		values.update(runs=lst(runs), groups=lst([group]))
+		return to_alist(values)
+
+	def test_groups_and_stacked_copies_are_written_and_validated(self):
+		model = self.grouped()
+		issues = self.lisp.call("il-check", model, self.catalog, "2026-11-25")
+		package = to_python_json(self.lisp.call("il-package", model, self.catalog, issues, "AutoCAD 2025"))
+		with load_service(ROOT + ".system_design.ilq_schema") as (module, _frappe):
+			self.assertEqual(module.validate_package(package), [])
+		stacked = next(item for item in package["runs"] if item["id"] == "L1-01")
+		self.assertEqual((stacked["copies"], stacked["label"]), (4, "Shelf"))
+		self.assertNotIn("copies", next(item for item in package["runs"] if item["id"] == "L1-02"))
+		self.assertEqual(
+			package["groups"],
+			[
+				{
+					"id": "G-01",
+					"handle": "9F",
+					"fixture_type": "L1",
+					"room": "Z-Kitchen",
+					"sheet": "Model",
+					"runs": ["L1-01"],
+					"power": {"include_supplies": True, "allocation": "grouped"},
+					"erp": {},
+				}
+			],
+		)
+		# A drawing without groups writes no groups key, so its content hash is the 0.5.x one.
+		self.assertNotIn("groups", self.package(self.model, "AutoCAD 2025"))
+		self.assertNotEqual(
+			self.lisp.call("il-model-hash", model, self.catalog),
+			self.lisp.call("il-model-hash", self.model, self.catalog),
+		)
+
+	def test_stacked_copies_load_the_supply_and_group_wires_feed_members(self):
+		codes = {(issue["code"], issue["ref"]) for issue in self.issues()}
+		self.model = self.grouped()
+		grouped = [
+			issue for issue in self.issues() if issue["ref"] == "PS-01" and issue["code"] == "PSU_OVERLOAD"
+		]
+		self.assertTrue(grouped)
+		self.assertIn("W on 76.8 W usable", grouped[0]["text"])
+		self.assertNotIn(("COPIES_NOT_IN_GROUP", "L1-01"), {(i["code"], i["ref"]) for i in self.issues()})
+		self.assertIn(("PSU_OVERLOAD", "PS-01"), codes)  # Already over before the stack.
+		values = alist(self.model)
+		values["wires"] = lst(
+			[to_alist({"id": "W-02", "from": "CAB-1", "to": "G-01", "kind": "lv", "length_in": 12.0})]
+		)
+		values["psus"] = lst([])
+		model = to_alist(values)
+		self.assertIs(self.lisp.call("il-run-fed-p", model, "L1-01"), mini_lisp.T)
+		self.assertIsNone(self.lisp.call("il-run-fed-p", model, "L1-02"))
+
+	def test_receipt_stamps_groups(self):
+		receipt = from_python_json(
+			{
+				"schema": "ilq-receipt/1",
+				"runs": [],
+				"groups": [
+					{
+						"id": "G-01",
+						"line_key": "LK7",
+						"configured_name": "GRP-1",
+						"config_hash": "h",
+						"part_number": "GPN-1",
+					}
+				],
+			}
+		)
+		index = self.lisp.call("il-receipt-groups", receipt)
+		group = alist(self.lisp.call("il-group-with-receipt", to_alist({"id": "G-01"}), index))
+		self.assertEqual(
+			(group["line_key"], group["part_number"], group["config_hash"]), ("LK7", "GPN-1", "h")
+		)
+		other = alist(self.lisp.call("il-group-with-receipt", to_alist({"id": "G-02"}), index))
+		self.assertNotIn("line_key", other)
+		self.assertIsNone(self.lisp.call("il-receipt-groups", from_python_json({"schema": "other"})))
 
 	def test_stale_catalog_warning(self):
 		self.assertIsNone(self.lisp.call("il-catalog-stale", self.catalog, "2026-12-01"))

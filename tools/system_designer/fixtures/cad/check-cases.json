@@ -1800,6 +1800,488 @@
      "text": "Load the CAD catalog (ILCATALOG) before checking"
     }
    ]
+  },
+  {
+   "name": "groups-clean",
+   "rules": [
+    "GROUP_UNKNOWN_RUN",
+    "GROUP_RUN_IN_TWO_GROUPS",
+    "GROUP_EMPTY",
+    "GROUP_TOO_MANY",
+    "GROUP_MIXED_STYLE",
+    "GROUP_FAMILY",
+    "GROUP_MIXED_TYPE",
+    "GROUP_MIXED_ROOM",
+    "GROUP_MIXED_FEED",
+    "COPIES_NOT_IN_GROUP",
+    "PSU_OVERLOAD"
+   ],
+   "note": "A stack of two shelves (one drawn run) and a group of two drawn runs; a run without a room joins a roomed group.",
+   "package": {
+    "rooms": [
+     {
+      "id": "R-01",
+      "name": "Pantry"
+     }
+    ],
+    "runs": [
+     {
+      "id": "T1-01",
+      "style": {
+       "family": "LED Tape",
+       "template": "led-hd-sw",
+       "selections": {
+        "environment_rating": "Dry",
+        "cct": "2700K",
+        "output_level": "300 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 48
+       }
+      ],
+      "room": "R-01",
+      "copies": 2,
+      "label": "Shelf"
+     },
+     {
+      "id": "T1-02",
+      "style": {
+       "family": "LED Tape",
+       "template": "led-hd-sw",
+       "selections": {
+        "environment_rating": "Dry",
+        "cct": "2700K",
+        "output_level": "300 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 60
+       }
+      ],
+      "room": "R-01"
+     },
+     {
+      "id": "T1-03",
+      "style": {
+       "family": "LED Tape",
+       "template": "led-hd-sw",
+       "selections": {
+        "environment_rating": "Dry",
+        "cct": "2700K",
+        "output_level": "300 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 36
+       }
+      ]
+     }
+    ],
+    "psus": [
+     {
+      "id": "PS-01",
+      "item_code": "PS-96-24",
+      "runs": [
+       "T1-01"
+      ]
+     }
+    ],
+    "groups": [
+     {
+      "id": "G-01",
+      "room": "R-01",
+      "runs": [
+       "T1-01"
+      ]
+     },
+     {
+      "id": "G-02",
+      "runs": [
+       "T1-02",
+       "T1-03"
+      ],
+      "power": {
+       "include_supplies": false,
+       "allocation": "per_run"
+      }
+     }
+    ]
+   },
+   "expected": []
+  },
+  {
+   "name": "group-stack-loads-its-supply",
+   "rules": [
+    "PSU_OVERLOAD"
+   ],
+   "note": "One drawn 120 in run (43.31 W) stacked twice is 86.6 W on the supply that feeds it.",
+   "package": {
+    "runs": [
+     {
+      "id": "T1-01",
+      "style": {
+       "family": "LED Tape",
+       "template": "led-hd-sw",
+       "selections": {
+        "environment_rating": "Dry",
+        "cct": "2700K",
+        "output_level": "300 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 120
+       }
+      ],
+      "copies": 2
+     }
+    ],
+    "psus": [
+     {
+      "id": "PS-01",
+      "item_code": "PS-96-24",
+      "runs": [
+       "T1-01"
+      ]
+     }
+    ],
+    "groups": [
+     {
+      "id": "G-01",
+      "runs": [
+       "T1-01"
+      ]
+     }
+    ]
+   },
+   "expected": [
+    {
+     "code": "PSU_OVERLOAD",
+     "ref": "PS-01",
+     "severity": "warning",
+     "text": "86.6 W on 76.8 W usable; the System Designer will reassign outputs"
+    }
+   ]
+  },
+  {
+   "name": "group-mixed",
+   "rules": [
+    "GROUP_MIXED_STYLE",
+    "GROUP_MIXED_TYPE",
+    "GROUP_MIXED_ROOM",
+    "GROUP_MIXED_FEED",
+    "GROUP_FAMILY"
+   ],
+   "package": {
+    "rooms": [
+     {
+      "id": "R-01",
+      "name": "Pantry"
+     },
+     {
+      "id": "R-02",
+      "name": "Bar"
+     }
+    ],
+    "runs": [
+     {
+      "id": "T1-01",
+      "style": {
+       "family": "LED Tape",
+       "template": "led-hd-sw",
+       "selections": {
+        "environment_rating": "Dry",
+        "cct": "2700K",
+        "output_level": "300 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 48
+       }
+      ],
+      "room": "R-01"
+     },
+     {
+      "id": "T1-02",
+      "style": {
+       "family": "LED Tape",
+       "template": "led-hd-sw",
+       "selections": {
+        "environment_rating": "Dry",
+        "cct": "3000K",
+        "output_level": "300 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 48
+       }
+      ],
+      "fixture_type": "T2"
+     },
+     {
+      "id": "T1-03",
+      "style": {
+       "family": "LED Tape",
+       "template": "led-hd-sw",
+       "selections": {
+        "environment_rating": "Dry",
+        "cct": "2700K",
+        "output_level": "300 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 48
+       }
+      ],
+      "room": "R-02",
+      "feed": {
+       "method": "center"
+      }
+     }
+    ],
+    "groups": [
+     {
+      "id": "G-01",
+      "runs": [
+       "T1-01",
+       "T1-02",
+       "T1-03"
+      ]
+     }
+    ]
+   },
+   "expected": [
+    {
+     "code": "GROUP_MIXED_STYLE",
+     "ref": "G-01",
+     "severity": "error",
+     "text": "Runs in a group need one style; apply one with ILSTYLE"
+    },
+    {
+     "code": "GROUP_MIXED_TYPE",
+     "ref": "G-01",
+     "severity": "error",
+     "text": "Runs of Type T2 in a group of Type T1"
+    },
+    {
+     "code": "GROUP_MIXED_ROOM",
+     "ref": "G-01",
+     "severity": "error",
+     "text": "Runs in rooms R-01, R-02; a group is in one room"
+    },
+    {
+     "code": "GROUP_MIXED_FEED",
+     "ref": "G-01",
+     "severity": "warning",
+     "text": "Runs fed center, end; the System Designer uses one feed method for the group"
+    }
+   ]
+  },
+  {
+   "name": "group-of-kits",
+   "rules": [
+    "GROUP_FAMILY",
+    "GROUP_MIXED_STYLE"
+   ],
+   "package": {
+    "runs": [
+     {
+      "id": "K1-01",
+      "style": {
+       "family": "Extrusion Kit",
+       "template": "KIT-AZ01",
+       "selections": {
+        "finish": "Silver"
+       },
+       "tape": {
+        "family": "LED Tape",
+        "template": "led-hd-sw",
+        "selections": {
+         "environment_rating": "Wet",
+         "cct": "2700K",
+         "output_level": "300 lm/ft"
+        }
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 78.75
+       }
+      ]
+     },
+     {
+      "id": "K1-02",
+      "style": {
+       "family": "Extrusion Kit",
+       "template": "KIT-AZ01",
+       "selections": {
+        "finish": "Silver"
+       },
+       "tape": {
+        "family": "LED Tape",
+        "template": "led-hd-sw",
+        "selections": {
+         "environment_rating": "Wet",
+         "cct": "2700K",
+         "output_level": "300 lm/ft"
+        }
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 40
+       }
+      ]
+     }
+    ],
+    "groups": [
+     {
+      "id": "G-01",
+      "fixture_type": "K1",
+      "runs": [
+       "K1-01",
+       "K1-02"
+      ]
+     }
+    ]
+   },
+   "expected": [
+    {
+     "code": "GROUP_FAMILY",
+     "ref": "G-01",
+     "severity": "error",
+     "text": "Extrusion Kit runs cannot be grouped"
+    }
+   ]
+  },
+  {
+   "name": "group-structure",
+   "schema_valid": false,
+   "rules": [
+    "GROUP_UNKNOWN_RUN",
+    "GROUP_RUN_IN_TWO_GROUPS",
+    "GROUP_EMPTY",
+    "GROUP_TOO_MANY",
+    "COPIES_NOT_IN_GROUP"
+   ],
+   "note": "What ILCHECK catches before a package is written; the ilq/2 schema refuses all of it.",
+   "package": {
+    "runs": [
+     {
+      "id": "T1-01",
+      "style": {
+       "family": "LED Tape",
+       "template": "led-hd-sw",
+       "selections": {
+        "environment_rating": "Dry",
+        "cct": "2700K",
+        "output_level": "300 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 24
+       }
+      ],
+      "copies": 7
+     },
+     {
+      "id": "T1-02",
+      "style": {
+       "family": "LED Tape",
+       "template": "led-hd-sw",
+       "selections": {
+        "environment_rating": "Dry",
+        "cct": "2700K",
+        "output_level": "300 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 24
+       }
+      ],
+      "copies": 6
+     },
+     {
+      "id": "T1-03",
+      "style": {
+       "family": "LED Tape",
+       "template": "led-hd-sw",
+       "selections": {
+        "environment_rating": "Dry",
+        "cct": "2700K",
+        "output_level": "300 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 24
+       }
+      ],
+      "copies": 2
+     }
+    ],
+    "groups": [
+     {
+      "id": "G-01",
+      "runs": [
+       "T1-01",
+       "T1-02",
+       "T9-99"
+      ]
+     },
+     {
+      "id": "G-02",
+      "runs": [
+       "T1-02"
+      ]
+     },
+     {
+      "id": "G-03",
+      "runs": []
+     }
+    ]
+   },
+   "expected": [
+    {
+     "code": "GROUP_UNKNOWN_RUN",
+     "ref": "G-01",
+     "severity": "error",
+     "text": "Run T9-99 is not in the drawing"
+    },
+    {
+     "code": "GROUP_TOO_MANY",
+     "ref": "G-01",
+     "severity": "error",
+     "text": "13 runs, copies included; a group holds at most 12"
+    },
+    {
+     "code": "GROUP_RUN_IN_TWO_GROUPS",
+     "ref": "G-02",
+     "severity": "error",
+     "text": "Run T1-02 is already in another group"
+    },
+    {
+     "code": "GROUP_EMPTY",
+     "ref": "G-03",
+     "severity": "error",
+     "text": "The group has no runs; add runs with ILGROUP"
+    },
+    {
+     "code": "COPIES_NOT_IN_GROUP",
+     "ref": "T1-03",
+     "severity": "error",
+     "text": "A stacked run must be in a group; run ILUPDATE"
+    }
+   ]
   }
  ]
 }
