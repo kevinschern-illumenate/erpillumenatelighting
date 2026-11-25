@@ -935,16 +935,18 @@ const mappingScript = `<script>
           }
 
           // Page rules (owner, 2026-11-18):
-          // - the Part Number Builder always starts its own page, title and example included;
+          // - the Part Number Builder starts its own page, title and example included, except on
+          //   Extrusion Kits, where it may follow Dimensions (owner, 2026-11-25);
           // - a kit's Components start their own page (fixtures' flow on);
           // - a section split over two pages keeps its title (.spec-h2, and the builder's
           //   example line) with the content that follows it.
           const visible = el => el.style.display !== 'none';
           const pageHasContent = () => Array.from(currentMain.children).some(visible);
           const isHeading = el => el.classList.contains('spec-h2') || !!el.querySelector('#part-no-ex') || el.id === 'part-no-ex';
+          const kit = data.product_type === 'Extrusion Kit';
           sections.forEach(section => {
-              const ownPage = visible(section) && (section.id === 'part-no-builder'
-                  || (section.id === 'components' && data.product_type === 'Extrusion Kit'));
+              const ownPage = visible(section) && ((section.id === 'part-no-builder' && !kit)
+                  || (section.id === 'components' && kit));
               if (ownPage && pageHasContent()) addPage();
 
               currentMain.appendChild(section);
