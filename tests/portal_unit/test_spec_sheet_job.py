@@ -157,6 +157,25 @@ class Route(unittest.TestCase):
 		self.module, self.frappe = context.__enter__()
 		self.addCleanup(context.__exit__, None, None, None)
 
+	def test_public_link_domain(self):
+		# The stable link takes site config spec_sheet_base_url when set (owner, 2026-11-25:
+		# https://app.illumenate.lighting), else the site's own address.
+		import sys
+
+		sys.modules["frappe.utils"].get_url = lambda *args: "https://illumenatelighting.v.frappe.cloud"
+		self.module.brand_name = lambda brand: "ilLumenate Lighting"
+		self.frappe.conf = {}
+		self.assertEqual(
+			self.module.public_url("ILL-RA01-SW", "illumenate"),
+			"https://illumenatelighting.v.frappe.cloud/spec-sheets/illumenate-lighting_ill-ra01-sw.pdf",
+		)
+		for configured in ("https://app.illumenate.lighting", " https://app.illumenate.lighting/ "):
+			self.frappe.conf = {"spec_sheet_base_url": configured}
+			self.assertEqual(
+				self.module.public_url("ILL-RA01-SW", "illumenate"),
+				"https://app.illumenate.lighting/spec-sheets/illumenate-lighting_ill-ra01-sw.pdf",
+			)
+
 	def test_spec_sheet_paths(self):
 		key = self.module.key_from_path
 		self.assertEqual(key("/spec-sheets/kit-ra01.pdf"), "kit-ra01")
