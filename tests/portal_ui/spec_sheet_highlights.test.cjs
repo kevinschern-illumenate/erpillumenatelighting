@@ -369,3 +369,49 @@ test("the product page highlights a tag when any of its alternatives has every p
   assert.equal(match("1:20", picked), false);
   assert.equal(match("", picked), false);
 });
+
+// Louvered lenses (owner, 2026-11-25): "White Lens / Linear Louver" and "White Lens / Hex Louver"
+// are the White lens with a louver, so the Output Options "(White Lens)" row and the Delivered
+// Lumens "White" column (the louvers have no row or column of their own) answer to all three.
+test("louvered lenses count as their lens in Output Options and Delivered Lumens", () => {
+  const product = structuredClone(PRODUCT);
+  product.configurator_options.find((o) => o.option_type === "Lens Appearance").allowed_values_json =
+    values([
+      ["WH", "White"],
+      ["WX", "White Lens / Hex Louver"],
+      ["WL", "White Lens / Linear Louver"],
+    ]);
+  product.configurator_options.find((o) => o.option_type === "Output Level").allowed_values_json =
+    JSON.stringify({
+      lensMap: Object.fromEntries(
+        ["WH", "WX", "WL"].map((lens) => [lens, [{ code: "50", label: "50 lm/ft" }, { code: "200", label: "200 lm/ft" }]])
+      ),
+    });
+  product.specifications.find((s) => s.spec_label === "Lens Options").spec_value =
+    "White, White Lens / Hex Louver, White Lens / Linear Louver";
+  product.output_options = {
+    columns: ["50", "200"],
+    rows: [{ label: "Fixture Wattage (White Lens)", values: ["0.8W", "3.6W"] }],
+  };
+  product.delivered_lumens = {
+    lenses: [{ key: "white", label: "White" }],
+    rows: [{ output: "200 lm/ft", values: { white: "224" } }],
+  };
+  const doc = render(product);
+  const white = "3:WH 3:WX 3:WL";
+  const cells = Array.from(
+    doc.querySelectorAll("#output-options .table-data-wrapper .table-item-wrapper")
+  ).map((row) => Array.from(row.children).slice(1).map(tagOf));
+  assert.deepEqual(cells[0], [
+    "4:50+3:WH 4:50+3:WX 4:50+3:WL",
+    "4:200+3:WH 4:200+3:WX 4:200+3:WL",
+  ]);
+  const lensHead = Array.from(
+    doc.querySelectorAll("#delivered-lumens .table-title-wrapper .table-title")
+  ).slice(1);
+  assert.deepEqual(lensHead.map(tagOf), [white]);
+  const value = doc.querySelector("#delivered-lumens .table-data-wrapper .table-item-wrapper");
+  assert.equal(tagOf(value.children[1]), "4:200+3:WH 4:200+3:WX 4:200+3:WL");
+  // The Lens Options row keeps one tag per option.
+  assert.equal(tagOf(specValue(doc, "Lens Options", "White Lens / Linear Louver")), "3:WL");
+});

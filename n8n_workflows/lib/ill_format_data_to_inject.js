@@ -90,9 +90,12 @@ erpData.spec_highlights = {};
 // 3d. Fixture highlight tokens (owner, 2026-11-24): per step, its options' "<step>:<code>" tags
 // by label (lower case) and by code. The Output step lists its outputs per lens ({lensMap}).
 // A tag "<a>+<b>" needs both selections (the product page script, configured-spec-sheet.html).
+// byBase groups the options by their lens (owner, 2026-11-25): "White Lens / Linear Louver" is
+// the White lens with a louver, so a table row or column named for the White lens answers to it.
+const lensBase = label => String(label).toLowerCase().split('/')[0].trim().replace(/\s+lens(es)?$/, '').trim();
 const optionTokens = type => {
     const step = (erpData.configurator_options || []).find(o => o.option_type === type);
-    const tokens = { byLabel: {}, byCode: {} };
+    const tokens = { byLabel: {}, byCode: {}, byBase: {} };
     if (!step) return tokens;
     let raw = step.allowed_values;
     if (!raw) { try { raw = JSON.parse(step.allowed_values_json || '[]'); } catch (e) { raw = []; } }
@@ -102,7 +105,11 @@ const optionTokens = type => {
         if (!code) return;
         const token = step.option_step + ':' + code;
         tokens.byCode[code] = token;
-        if (v.label) tokens.byLabel[String(v.label).trim().toLowerCase()] = token;
+        if (v.label) {
+            tokens.byLabel[String(v.label).trim().toLowerCase()] = token;
+            const base = lensBase(v.label);
+            (tokens.byBase[base] = tokens.byBase[base] || []).push(token);
+        }
     });
     return tokens;
 };
@@ -802,11 +809,12 @@ const mappingScript = `<script>
               // Lens)"); "(Other Lenses)" is every lens no other row names.
               const lensOf = label => { const m = /\\(([^)]+?)\\s+lens(es)?\\)/i.exec(label || ''); return m ? m[1].trim().toLowerCase() : null; };
               const namedLenses = new Set(optionRows.map(row => lensOf(row.label)).filter(name => name && name !== 'other'));
+              // A lens named here takes its louvered options too (fx.lens.byBase).
               const rowLensTokens = label => {
                   if (!fx) return [];
                   const name = lensOf(label);
-                  if (name === 'other') return Object.entries(fx.lens.byLabel).filter(([key]) => !namedLenses.has(key)).map(([, token]) => token);
-                  return name && fx.lens.byLabel[name] ? [fx.lens.byLabel[name]] : [];
+                  if (name === 'other') return [].concat(...Object.entries(fx.lens.byBase).filter(([key]) => !namedLenses.has(key)).map(([, tokens]) => tokens));
+                  return (name && (fx.lens.byBase[name] || (fx.lens.byLabel[name] ? [fx.lens.byLabel[name]] : []))) || [];
               };
               const items = Array.from(rowPattern.children);
               const cellPattern = rowPattern.querySelector('#output-data') || items[1] || items[0];
@@ -846,11 +854,16 @@ const mappingScript = `<script>
           } else {
               const head = lumenSection.querySelector('.table-title-wrapper');
               const lensCells = head ? Array.from(head.querySelectorAll('.table-title')).slice(1) : [];
-              // Fixtures: the lens headers take the Lens step, the output labels the Output step,
-              // and each value both.
-              const lensToken = i => (fx && lenses[i] ? fx.lens.byLabel[String(lenses[i].label).trim().toLowerCase()] : '');
+              // Fixtures: the lens headers take the Lens step (with the lens's louvered options,
+              // fx.lens.byBase), the output labels the Output step, and each value both.
+              const lensTokens = i => {
+                  if (!fx || !lenses[i]) return [];
+                  const label = String(lenses[i].label).trim().toLowerCase();
+                  const byBase = fx.lens.byBase[label.replace(/\\s+lens(es)?$/, '')];
+                  return byBase || (fx.lens.byLabel[label] ? [fx.lens.byLabel[label]] : []);
+              };
               lensCells.forEach((cell, i) => {
-                  if (i < lenses.length) { cell.innerText = lenses[i].label; cell.removeAttribute('id'); tagText(cell, lensToken(i)); }
+                  if (i < lenses.length) { cell.innerText = lenses[i].label; cell.removeAttribute('id'); tagText(cell, lensTokens(i).join(' ')); }
                   else cell.remove();
               });
               const body = lumenSection.querySelector('.table-data-wrapper');
@@ -869,7 +882,7 @@ const mappingScript = `<script>
                           if (i <= lenses.length) {
                               cell.innerText = (row.values || {})[lenses[i - 1].key] || '—';
                               cell.removeAttribute('id');
-                              if (fx && lensToken(i - 1)) tagText(cell, both(outputToken, [lensToken(i - 1)]));
+                              if (fx && lensTokens(i - 1).length) tagText(cell, both(outputToken, lensTokens(i - 1)));
                           } else {
                               cell.remove();
                           }

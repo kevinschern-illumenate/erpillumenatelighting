@@ -446,7 +446,7 @@
     {
      "allowed_values_json": "[\n {\n  \"code\": \"FR\",\n  \"is_default\": 1,\n  \"label\": \"Frosted\",\n  \"value\": \"Frosted\"\n },\n {\n  \"code\": \"CL\",\n  \"is_default\": 0,\n  \"label\": \"Clear\",\n  \"value\": \"Clear\"\n },\n {\n  \"code\": \"\",\n  \"is_default\": 0,\n  \"label\": \"Opal\",\n  \"value\": \"Opal\"\n }\n]",
      "depends_on_step": 0,
-     "is_required": 1,
+     "is_required": 0,
      "option_description": null,
      "option_label": "Lens",
      "option_step": 3,
@@ -729,7 +729,7 @@
     {
      "allowed_values_json": "[\n {\n  \"code\": \"FR\",\n  \"is_default\": 1,\n  \"label\": \"Frosted\",\n  \"value\": \"Frosted\"\n },\n {\n  \"code\": \"CL\",\n  \"is_default\": 0,\n  \"label\": \"Clear\",\n  \"value\": \"Clear\"\n },\n {\n  \"code\": \"\",\n  \"is_default\": 0,\n  \"label\": \"Opal\",\n  \"value\": \"Opal\"\n }\n]",
      "depends_on_step": 0,
-     "is_required": 1,
+     "is_required": 0,
      "option_description": null,
      "option_label": "Lens",
      "option_step": 3,
@@ -2796,7 +2796,7 @@
       "allowed_values_json": "[\n {\n  \"code\": \"FR\",\n  \"is_default\": 1,\n  \"label\": \"Frosted\",\n  \"value\": \"Frosted\"\n },\n {\n  \"code\": \"CL\",\n  \"is_default\": 0,\n  \"label\": \"Clear\",\n  \"value\": \"Clear\"\n },\n {\n  \"code\": \"\",\n  \"is_default\": 0,\n  \"label\": \"Opal\",\n  \"value\": \"Opal\"\n }\n]",
       "depends_on_step": 0,
       "idx": 3,
-      "is_required": 1,
+      "is_required": 0,
       "option_label": "Lens",
       "option_step": 3,
       "option_type": "Lens Appearance"
