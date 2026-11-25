@@ -574,47 +574,41 @@ const mappingScript = `<script>
 
       // --- E3. EXTRA DIMENSION IMAGES (Spec Gallery, section "Dimensions") ---
       // The first .dimension-item keeps dimensions_image (#spec-dims-img). #dimension-item
-      // (.dimension-item.other) is the pattern for the extra ones: one copy per title, its
-      // #dimension-title (hidden when empty) over that title's drawings, stacked inside it, one
-      // #spec-dims-img-other copy each (owner, 2026-11-25: they ran across the page when every
-      // drawing had its own item). A row without a title joins the item before it. Then hidden.
-      const dimTemplate = document.getElementById('dimension-item');
-      if (dimTemplate) {
+      // (.dimension-item.other, a vertical flex) takes every extra drawing: per title, a copy of
+      // #dimension-title, then one #spec-dims-img-other copy per drawing; a row without a title
+      // goes under the title before it (owner, 2026-11-25: one item per drawing, then per title,
+      // sat side by side in the list wrapper's wrapping row). No rows: the item stays hidden.
+      const dimItem = document.getElementById('dimension-item');
+      if (dimItem) {
           const rows = (Array.isArray(data.spec_gallery) ? data.spec_gallery : [])
               .filter(row => row.section === 'Dimensions' && row.image);
-          const groups = [];
-          rows.forEach(row => {
-              const title = String(row.title || '').trim();
-              const last = groups[groups.length - 1];
-              if (last && (!title || title === last.title)) last.images.push(row.image);
-              else groups.push({ title, images: [row.image] });
-          });
-          let anchor = dimTemplate;
-          groups.forEach(group => {
-              const item = dimTemplate.cloneNode(true);
-              item.style.display = '';
-              item.removeAttribute('id');
-              const titleEl = item.querySelector('#dimension-title');
-              if (titleEl) {
-                  titleEl.removeAttribute('id');
-                  if (group.title) { titleEl.innerText = group.title; } else { titleEl.style.display = 'none'; }
-              }
-              const imgPattern = item.querySelector('#spec-dims-img-other');
-              if (imgPattern) {
-                  imgPattern.removeAttribute('id');
-                  group.images.forEach(url => {
-                      const imgEl = imgPattern.cloneNode(false);
-                      imgEl.src = url;
-                      imgEl.removeAttribute('srcset');
-                      imgEl.removeAttribute('loading');
-                      imgPattern.parentNode.insertBefore(imgEl, imgPattern);
-                  });
-                  imgPattern.remove();
-              }
-              anchor.parentNode.insertBefore(item, anchor.nextSibling);
-              anchor = item;
-          });
-          dimTemplate.style.display = 'none';
+          const titlePattern = dimItem.querySelector('#dimension-title');
+          const imgPattern = dimItem.querySelector('#spec-dims-img-other');
+          if (!rows.length || !imgPattern) {
+              dimItem.style.display = 'none';
+          } else {
+              let lastTitle = null;
+              rows.forEach(row => {
+                  const title = String(row.title || '').trim();
+                  if (title && title !== lastTitle && titlePattern) {
+                      const titleEl = titlePattern.cloneNode(true);
+                      titleEl.removeAttribute('id');
+                      titleEl.innerText = title;
+                      dimItem.insertBefore(titleEl, titlePattern);
+                  }
+                  if (title) lastTitle = title;
+                  const imgEl = imgPattern.cloneNode(false);
+                  imgEl.removeAttribute('id');
+                  imgEl.src = row.image;
+                  imgEl.removeAttribute('srcset');
+                  imgEl.removeAttribute('loading');
+                  dimItem.insertBefore(imgEl, titlePattern || imgPattern);
+              });
+              if (titlePattern) titlePattern.remove();
+              imgPattern.remove();
+              dimItem.removeAttribute('id');
+              dimItem.style.display = '';
+          }
       }
 
       // --- E3b. ACCESSORIES DIMENSIONS (Spec Gallery, section "Accessories Dimensions") ---

@@ -1,8 +1,9 @@
 // Extra dimension drawings on the spec sheet (Spec Gallery rows of section "Dimensions").
 // The page's .dimensions-list-wrapper holds the main .dimension-item and one
-// #dimension-item.dimension-item.other: a #dimension-title over one #spec-dims-img-other. The
-// drawings of one title stack inside one .dimension-item.other (owner, 2026-11-25); a new title
-// starts the next one. Before, every drawing got its own .dimension-item and they ran across.
+// #dimension-item.dimension-item.other: a #dimension-title over one #spec-dims-img-other. All the
+// extra drawings go in that one .dimension-item.other, each title over its drawings, so its
+// vertical flex stacks them (owner, 2026-11-25). Before, every drawing (then every title) got its
+// own .dimension-item, and the list wrapper's wrapping row put them side by side.
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -53,39 +54,48 @@ function render(gallery) {
   });
   const doc = dom.window.document;
   const shown = (el) => el.style.display !== "none";
-  return [...doc.querySelectorAll(".dimension-item.other")].filter(shown).map((item) => ({
-    title: [...item.querySelectorAll(".spec-h3")].filter(shown).map((el) => el.textContent).join(""),
-    images: [...item.querySelectorAll("img.spec-dims-img.other")].map((img) => img.getAttribute("src")),
-  }));
+  // Each shown .dimension-item.other as its children in order: "title:<text>" or "img:<src>".
+  return [...doc.querySelectorAll(".dimension-item.other")].filter(shown).map((item) =>
+    [...item.children].filter(shown).map((el) =>
+      el.tagName === "IMG" ? `img:${el.getAttribute("src")}` : `title:${el.textContent}`
+    )
+  );
 }
 
 const row = (image, title, section = "Dimensions") => ({ section, title, image });
 
-test("the drawings of one title stack in one item", () => {
-  assert.deepEqual(
-    render([row("/files/a.svg", "Side View"), row("/files/b.svg", "Side View"), row("/files/c.svg", "Side View")]),
-    [{ title: "Side View", images: ["/files/a.svg", "/files/b.svg", "/files/c.svg"] }]
-  );
-});
-
-test("a new title starts the next item; untitled drawings join the one before", () => {
+test("every extra drawing stacks in the one item, each title over its drawings", () => {
+  // ILL-RA01-SW on production: three drawings, three titles.
   assert.deepEqual(
     render([
-      row("/files/a.svg", "Side View"),
-      row("/files/b.svg", ""),
-      row("/files/c.svg", "End View"),
+      row("/files/side.jpg", "Side View"),
+      row("/files/linear.jpg", "Top View with Linear Louver"),
+      row("/files/hex.jpg", "Top View with Hex Louver"),
       row("/files/x.svg", "Mounting", "Accessories Dimensions"),
     ]),
     [
-      { title: "Side View", images: ["/files/a.svg", "/files/b.svg"] },
-      { title: "End View", images: ["/files/c.svg"] },
+      [
+        "title:Side View",
+        "img:/files/side.jpg",
+        "title:Top View with Linear Louver",
+        "img:/files/linear.jpg",
+        "title:Top View with Hex Louver",
+        "img:/files/hex.jpg",
+      ],
     ]
   );
 });
 
-test("untitled drawings only: one item, its title hidden", () => {
+test("drawings sharing a title, or untitled, sit under the title before them", () => {
+  assert.deepEqual(
+    render([row("/files/a.svg", "Side View"), row("/files/b.svg", "Side View"), row("/files/c.svg", "")]),
+    [["title:Side View", "img:/files/a.svg", "img:/files/b.svg", "img:/files/c.svg"]]
+  );
+});
+
+test("untitled drawings only: no title shown", () => {
   assert.deepEqual(render([row("/files/a.svg", ""), row("/files/b.svg", null)]), [
-    { title: "", images: ["/files/a.svg", "/files/b.svg"] },
+    ["img:/files/a.svg", "img:/files/b.svg"],
   ]);
 });
 
