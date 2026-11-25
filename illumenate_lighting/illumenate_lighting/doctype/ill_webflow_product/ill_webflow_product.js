@@ -3,6 +3,12 @@
 
 frappe.ui.form.on("ilL-Webflow-Product", {
 	refresh(frm) {
+		// Documents come from the template (its Other Documents and spec sheet fields), so no
+		// file is added here (owner, 2026-11-25). The child table is shared with the templates,
+		// whose File column stays editable.
+		const documentsGrid = frm.fields_dict.documents && frm.fields_dict.documents.grid;
+		if (documentsGrid) documentsGrid.update_docfield_property('document_file', 'read_only', 1);
+
 		if (is_duplicate_doc(frm)) {
 			clear_only_webflow_sync_section(frm);
 		}
