@@ -38,7 +38,8 @@ function render(gallery) {
     "Get Product Info": { message: { products: [product] } },
   };
   const $ = (name) => ({ first: () => ({ json: inputs[name] }) });
-  const html = vm.runInNewContext(`(function() {${FORMAT}\n})()`, { $ }).json.injected_html;
+  const html = vm.runInNewContext(`(function() {${FORMAT}\n})()`, { $ }).json
+    .injected_html;
   const dom = new JSDOM(html, {
     runScripts: "dangerously",
     beforeParse(window) {
@@ -55,14 +56,24 @@ function render(gallery) {
   const doc = dom.window.document;
   const shown = (el) => el.style.display !== "none";
   // Each shown .dimension-item.other as its children in order: "title:<text>" or "img:<src>".
-  return [...doc.querySelectorAll(".dimension-item.other")].filter(shown).map((item) =>
-    [...item.children].filter(shown).map((el) =>
-      el.tagName === "IMG" ? `img:${el.getAttribute("src")}` : `title:${el.textContent}`
-    )
-  );
+  return [...doc.querySelectorAll(".dimension-item.other")]
+    .filter(shown)
+    .map((item) =>
+      [...item.children]
+        .filter(shown)
+        .map((el) =>
+          el.tagName === "IMG"
+            ? `img:${el.getAttribute("src")}`
+            : `title:${el.textContent}`
+        )
+    );
 }
 
-const row = (image, title, section = "Dimensions") => ({ section, title, image });
+const row = (image, title, section = "Dimensions") => ({
+  section,
+  title,
+  image,
+});
 
 test("every extra drawing stacks in the one item, each title over its drawings", () => {
   // ILL-RA01-SW on production: three drawings, three titles.
@@ -88,15 +99,27 @@ test("every extra drawing stacks in the one item, each title over its drawings",
 
 test("drawings sharing a title, or untitled, sit under the title before them", () => {
   assert.deepEqual(
-    render([row("/files/a.svg", "Side View"), row("/files/b.svg", "Side View"), row("/files/c.svg", "")]),
-    [["title:Side View", "img:/files/a.svg", "img:/files/b.svg", "img:/files/c.svg"]]
+    render([
+      row("/files/a.svg", "Side View"),
+      row("/files/b.svg", "Side View"),
+      row("/files/c.svg", ""),
+    ]),
+    [
+      [
+        "title:Side View",
+        "img:/files/a.svg",
+        "img:/files/b.svg",
+        "img:/files/c.svg",
+      ],
+    ]
   );
 });
 
 test("untitled drawings only: no title shown", () => {
-  assert.deepEqual(render([row("/files/a.svg", ""), row("/files/b.svg", null)]), [
-    ["img:/files/a.svg", "img:/files/b.svg"],
-  ]);
+  assert.deepEqual(
+    render([row("/files/a.svg", ""), row("/files/b.svg", null)]),
+    [["img:/files/a.svg", "img:/files/b.svg"]]
+  );
 });
 
 test("no Dimensions rows: the pattern stays hidden", () => {
