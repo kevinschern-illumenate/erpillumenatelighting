@@ -112,6 +112,8 @@ Accounting then sets the customer up. **New customers to set up** in Portal Oper
 
 **Add Fixture Line** on a portal schedule (and the Desk **Configure & Add Fixture**) starts every product family the same way: pick the category, pick its template on the card picker, then either **Add** the line to configure later or configure it now. Lines added for later show **Configure**; configured lines show **Edit Config** and reopen in their configurator.
 
+**Multi-run group part numbers.** A multi-run group is sold under one readable part number, the same on the schedule, the Desk dialog, the Quotation and the Sales Order. It is the runs' shared configured part number up to the length, then the total of all runs (inches; square feet with `SF` for LED Sheet areas), then `GRP(` and four characters of the group's build hash `)`. Example: `ILL-SH01-HD-DR-30-HO-FR-SM-WH-144.0-GRP(A1B2)`. The code only grows past four characters if another group already holds it. Lines quoted under an older number keep it.
+
 | Category | Template | Configurator | Notes |
 |---|---|---|---|
 | Linear fixtures | ilL-Fixture-Template | `/portal/configure` | Unchanged |

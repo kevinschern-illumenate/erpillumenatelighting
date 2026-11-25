@@ -24,29 +24,47 @@ BADGE_FIELDS = {
 }
 
 
-def item_image(item_code):
-	"""The template item's image (``variant_of``), else the item's own image."""
+def item_image_source(item_code):
+	"""(image, item to open to change it): the template item's image (``variant_of``), else the
+	item's own image. With neither, the template item, where a picture for every variant belongs.
+	"""
 	if not item_code:
-		return None
+		return None, None
 	row = frappe.db.get_value("Item", item_code, ["variant_of", "image"], as_dict=True)
 	if not row:
-		return None
+		return None, None
 	if row.variant_of:
 		image = frappe.db.get_value("Item", row.variant_of, "image")
 		if image:
-			return image
-	return row.image
+			return image, row.variant_of
+		if not row.image:
+			return None, row.variant_of
+	return row.image, item_code
 
 
-def fill_component_images(template, image_of=item_image, describe=None):
+def item_image(item_code):
+	"""The template item's image (``variant_of``), else the item's own image."""
+	return item_image_source(item_code)[0]
+
+
+def fill_component_images(template, image_of=None, describe=None):
+	"""Each row's Component Image, and its Image From link (owner, 2026-11-25): the record to
+	open to change the picture. ``image_of(item_code)`` overrides the item lookup (tests); the
+	link then names the row's own item."""
 	describe = describe or variant_attribute_value
 	images = {}
 	for row in template.get("kit_components") or []:
 		kind = row.get("component_type")
 		if kind and kind not in images and row.get("component_item"):
-			images[kind] = image_of(row.component_item)
+			if image_of is None:
+				images[kind] = item_image_source(row.component_item)
+			else:
+				images[kind] = (image_of(row.component_item), row.component_item)
 	for row in template.get("kit_components") or []:
-		row.component_image = images.get(row.get("component_type"))
+		image, source = images.get(row.get("component_type"), (None, None))
+		row.component_image = image
+		row.image_source_doctype = "Item" if source else None
+		row.image_source = source
 		value = describe(row.get("component_type"), row.get("component_item"))
 		if value:
 			row.component_description = value

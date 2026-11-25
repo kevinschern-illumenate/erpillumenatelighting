@@ -1,5 +1,6 @@
 {
   "name": "ERPNext → Webflow Product-Attribute Reference Sync",
+  "active": false,
   "nodes": [
     {
       "parameters": {

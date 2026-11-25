@@ -1,12 +1,13 @@
 """Order a multi-run group as a product bundle of its individually built runs.
 
-Converting a schedule line that holds a group (to a Quotation or Sales Order):
+Putting a group on a Quotation or Sales Order (from a fixture-schedule line or
+the desk Configure & Add Fixture dialog):
 
 * every run is saved as its own configured fixture / tape / neon / Sheet build,
   with a stock Item, its BOM and an MSRP Item Price, exactly as if it had been
   configured on its own line;
-* the line's readable group part number becomes a non-stock Item priced at the
-  group MSRP, branded as the selling company;
+* the group's readable part number (``group_part_number``) becomes a non-stock
+  Item priced at the group MSRP, branded as the selling company;
 * a Product Bundle of that Item packs the run Items (and the group's power
   supplies, when they are included in the group).
 
@@ -140,20 +141,26 @@ def _bundle_matches(code, rows):
 	)
 
 
-def _part_number(schedule, line, group, rows):
-	"""The line's part number, re-drawn when it already names a different group bundle."""
-	from illumenate_lighting.illumenate_lighting.api.group_part_number import generate, line_prefix
+def _part_number(group, build, rows, line=None):
+	"""The bundle's part number.
 
-	code = line.get("group_part_number")
+	A schedule line keeps the number it already holds when that Item is this
+	group's bundle of these runs (older formats included); otherwise the
+	group's own part number, lengthened only when another bundle holds it.
+	"""
+	from illumenate_lighting.illumenate_lighting.api.group_part_number import for_group
+
+	def matches(code):
+		return not frappe.db.exists("Product Bundle", code) or _bundle_matches(code, rows)
+
+	code = line.get("group_part_number") if line is not None else None
 	if code and frappe.db.exists("Item", code):
-		owner = frappe.db.get_value("Item", code, "ill_configured_group")
-		if owner == group.name and (
-			not frappe.db.exists("Product Bundle", code) or _bundle_matches(code, rows)
-		):
+		if frappe.db.get_value("Item", code, "ill_configured_group") == group.name and matches(code):
 			return code
 		code = None
 	if not code:
-		code = generate(line_prefix(schedule, line, group.template))
+		code = for_group(group, build, accept=matches)
+	if line is not None and line.get("group_part_number") != code:
 		line.group_part_number = line.ill_item_code = code
 		if line.get("name") and not line.get("__islocal"):
 			frappe.db.set_value(
@@ -166,8 +173,13 @@ def _part_number(schedule, line, group, rows):
 
 
 @atomic_build
-def ensure_order_bundle(schedule, line, target_doc=None):
-	"""Build every run, then the group's bundle Item; returns the quote/order row artifact."""
+def ensure_order_bundle(group_name, labels=None, target_doc=None, line=None):
+	"""Build every run, then the group's bundle Item; returns the quote/order row artifact.
+
+	``labels`` (member key -> dealer run label) name the runs. ``line`` is the
+	fixture-schedule line being ordered, when there is one; its part number is
+	kept up to date with the bundle's.
+	"""
 	from illumenate_lighting.illumenate_lighting.api.fixture_group_bom import (
 		current_estimate,
 		description,
@@ -181,17 +193,16 @@ def ensure_order_bundle(schedule, line, target_doc=None):
 		_ensure_default_uom_exists,
 		_ensure_item_group_exists,
 	)
-	from illumenate_lighting.illumenate_lighting.portal.group_display import run_labels
 
-	group = frappe.get_doc(GROUP, line.configured_group)
+	group = frappe.get_doc(GROUP, group_name)
 	build = snapshot(group)
-	labels = run_labels(line)
+	labels = labels or {}
 	members = [
 		build_member(build["request"], member, labels.get(member["member_key"]) or f"Run {index}")
 		for index, member in enumerate(build["members"], 1)
 	]
 	rows = bundle_rows(members, build)
-	code = _part_number(schedule, line, group, rows)
+	code = _part_number(group, build, rows, line)
 	brand = selling_company(target_doc)
 	text = description(build, labels)
 	count = len(build["members"])

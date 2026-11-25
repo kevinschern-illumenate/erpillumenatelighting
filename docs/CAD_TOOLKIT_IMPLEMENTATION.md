@@ -170,6 +170,31 @@ confirm `ill_portal_presets` is on (styles and `ILM-STYLE-` layers need it); set
 Known cost: preview and commit build the user's CAD catalog once each for the server checks; watch the
 preview time on large catalogs and cache by snapshot hash if needed.
 
+## Drawn multi-run groups, toolkit 0.6.0 (2026-11-25)
+
+From `docs/CAD_MULTI_RUN_GROUPS_PDR.md`. A plan-view line can stand for several runs (shelves stacked
+above each other on one supply), and several drawn runs can be quoted as one line. Both import as the
+portal's multi-run group (`ilL-Configured-Group`), built exactly as the portal group editor builds one.
+
+| Part | Built | Where |
+| --- | --- | --- |
+| Package | `ilq/2`, additive: `groups[]` (id, handle, Type, room, sheet, location, runs, power `include_supplies`/`allocation`/`override_max_run_ft`, notes, erp) and a run's `copies` (1-12) and `label`. At most 12 members per group, copies included; a run is in one group; a stacked run must be in one; a wire may end at a group. | `core-schemas/src/ilq.ts`, `ilq.schema.json`, `ilq_schema.py`, fixtures `group-*.json` |
+| Import | `Planner.plan_group`: model checks, the first run alone asks open options once for the group (choices keyed by group id), then `portal.configuration.calculate`/`save` with a `group_request`. The request mirrors the editor's: the style's shared options, its power keys as the group policy (the drawing's include/allocation win), other keys reported as "Not used by a group", `separate_supply_line` when supplies are included. Members are each drawn run, once per copy, in millimetres. Prices are never kept. The group line's `cad_run_id` is the group id; runs moved into a group are confirmed removals. | `portal/drawing_import.py` |
+| Receipt and site | Grouped runs point at the group line and list their members; `groups[]` gives line key, part number, config hash, members and supplies. `cad-site/1` has one entry per group line (room, cabinet, feed, longest low-voltage path into the tag or any run; `groupRuns`); zones list a group's line once. | `receipt_for`, `site_seed` |
+| Checks | `GROUP_UNKNOWN_RUN`, `GROUP_RUN_IN_TWO_GROUPS`, `GROUP_EMPTY`, `GROUP_TOO_MANY`, `GROUP_MIXED_STYLE`, `GROUP_FAMILY`, `GROUP_MIXED_TYPE`, `GROUP_MIXED_ROOM` (errors), `GROUP_MIXED_FEED` (warning), `COPIES_NOT_IN_GROUP`; `PSU_OVERLOAD` counts every copy. Same codes and texts in LISP and Python (golden cases); the import runs them itself, its server checks leave them out. | `il-model.lsp il-check-groups`, `drawing_checks.group_issues`, `check-cases.json` |
+| Toolkit 0.6.0 | `ILSTACK`, `ILGROUP` (New/Add/Remove/Power/Delete), `IL-GROUPTAG` block, run tags show `x4`, ILUPDATE groups stacked runs that have none and keeps a group's room with its first run, copied group tags adopt the nearest copies of their runs (ARRAY of a bay), ILCHECK marks group issues on the tag, ILRECEIPT stamps groups, ILOUT lists members and shared supplies. Bundle `public/cad_toolkit/ilLumenate-cad-toolkit-0.6.0.zip`. | `tools/cad_toolkit` |
+| UI | Portal and Desk import dialogs show each group's member runs under its row. | `public/js/portal/schedule/drawing_import.js`, `public/js/desk_drawing_import.js` |
+| System Designer | No model change: group lines already expand to one design run per member circuit (`expansion.group_build`) and the configurator's supply allocation is placed as before; a test covers the cad-site entry of a group line. | `packages/engine/src/cadSite.test.ts` |
+
+Not built (PDR later phases): DXF groups, pinning a drawn PSU model onto the plan, merging identical
+groups into a quantity, per-member sites. ILCONNECT still takes runs, not a group tag (select every run
+of a gathered group; a stack is one run).
+
+Turning it on: deploy the server first (older servers refuse packages with groups), keep
+`ill_portal_fixture_groups` on where drawings use groups, publish 0.6.0, then raise
+`ill_cad_min_versions` to `{"autocad": "0.6.0"}` once pilots have it. Staging acceptance: the "Drawn
+multi-run groups" row in `docs/B2B_CLOUD_ACCEPTANCE.md`.
+
 ## Phase 0 live data (read-only, 2026-11-20)
 
 | Data | Live | Effect |

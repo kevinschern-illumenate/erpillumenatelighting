@@ -1,7 +1,7 @@
 # Copyright (c) 2026, ilLumenate Lighting and contributors
 # For license information, please see license.txt
 
-"""Supplier part numbers and descriptions, edited on Purchase Orders and RFQs, kept on the Item.
+"""Supplier part numbers and descriptions, edited from purchasing and sales documents, kept on the Item.
 
 The Item's Supplier Items table (``Item Supplier``) is the source: one row per supplier with
 ``supplier_part_no`` and the site custom field ``custom_supplier_description``. ERPNext prints
@@ -15,6 +15,11 @@ Purchase Order and Request for Quotation lines show both values (``supplier_part
   who can edit Items. A blank line value never clears the Item; the Supplier Parts dialog can.
 - An RFQ has one supplier for this when it lists exactly one. With several, its lines are
   left alone and the dialog sets the values per supplier.
+
+The Supplier Parts dialog is also on the documents in ``ITEM_ONLY_DOCTYPES`` (Material Request,
+Quotation, Sales Order, ...). Their lines carry no supplier values, so the dialog only reads and
+writes the Items, for a supplier the user picks (``get_item_suppliers`` suggests the ones already
+set on those Items) or the document's own supplier.
 """
 
 import json
@@ -28,6 +33,15 @@ ITEM_DESCRIPTION = "custom_supplier_description"
 # The same value on a Purchase Order / RFQ line.
 LINE_DESCRIPTION = "ill_supplier_description"
 DOCTYPES = ("Purchase Order", "Request for Quotation")
+# Documents whose Supplier Parts dialog edits the Items only; their lines are left alone.
+ITEM_ONLY_DOCTYPES = (
+	"Material Request",
+	"Quotation",
+	"Sales Order",
+	"Supplier Quotation",
+	"Purchase Receipt",
+	"Purchase Invoice",
+)
 # Rolls back one Item's failed save when a PO / RFQ save writes line values back to its Items.
 ITEM_SAVEPOINT = "supplier_parts_item"
 
@@ -49,8 +63,8 @@ def _has_line_description(doctype) -> bool:
 
 
 def _check_doctype(doctype):
-	if doctype not in DOCTYPES:
-		frappe.throw(_("Supplier parts are edited from a Purchase Order or Request for Quotation."))
+	if doctype not in DOCTYPES and doctype not in ITEM_ONLY_DOCTYPES:
+		frappe.throw(_("Supplier parts can't be edited from a {0}.").format(doctype))
 
 
 def document_supplier(doc):
@@ -168,8 +182,54 @@ def get_supplier_part_info(supplier, item_codes, doctype="Purchase Order") -> di
 	codes = [_clean(code) for code in _parse(item_codes)]
 	return {
 		"has_description": has_description,
+		"supplier_name": frappe.db.get_value("Supplier", supplier, "supplier_name") or supplier,
 		"items": item_supplier_values(supplier, codes, has_description),
 	}
+
+
+@frappe.whitelist()
+def get_item_suppliers(item_codes, doctype="Sales Order") -> list:
+	"""The suppliers already set on these Items, most items first.
+
+	Reads each Item's Supplier Items rows and its default supplier (Item Defaults). Returns
+	``[{supplier, supplier_name, items}]``, where ``items`` counts the Items that name it; the
+	Supplier Parts dialog offers these when the document has no supplier of its own.
+	"""
+	_check_doctype(doctype)
+	frappe.has_permission(doctype, "read", throw=True)
+	codes = [code for code in dict.fromkeys(_clean(code) for code in _parse(item_codes)) if code]
+	if not codes:
+		return []
+	found = {}  # supplier -> item codes, in first-seen order
+	rows = frappe.get_all(
+		"Item Supplier",
+		filters={"parenttype": "Item", "parent": ["in", codes]},
+		fields=["parent", "supplier"],
+		order_by="idx asc",
+	)
+	defaults = frappe.get_all(
+		"Item Default",
+		filters={"parenttype": "Item", "parent": ["in", codes], "default_supplier": ["is", "set"]},
+		fields=["parent", "default_supplier as supplier"],
+	)
+	for row in [*rows, *defaults]:
+		if row.get("supplier"):
+			found.setdefault(row["supplier"], set()).add(row.get("parent"))
+	if not found:
+		return []
+	names = {
+		row.get("name"): row.get("supplier_name")
+		for row in frappe.get_all(
+			"Supplier", filters={"name": ["in", list(found)]}, fields=["name", "supplier_name"]
+		)
+	}
+	order = list(found)
+	result = [
+		{"supplier": supplier, "supplier_name": names.get(supplier) or supplier, "items": len(parents)}
+		for supplier, parents in found.items()
+	]
+	result.sort(key=lambda entry: (-entry["items"], order.index(entry["supplier"])))
+	return result
 
 
 @frappe.whitelist(methods=["POST"])
@@ -178,14 +238,15 @@ def update_supplier_part_info(supplier, rows, doctype="Purchase Order", name=Non
 
 	``rows`` is a list of ``{item_code, supplier_part_no, supplier_description}``; a blank value
 	clears the Item's. Each Item's Supplier Items row for ``supplier`` is updated, or added when
-	the Item has none. The user needs write access to ``doctype`` and to every Item in ``rows``;
-	nothing is saved unless they can edit all of them.
+	the Item has none. The user needs write access to every Item in ``rows`` (nothing is saved
+	unless they can edit all of them), and to ``doctype`` when it is a Purchase Order or RFQ;
+	from the documents in ``ITEM_ONLY_DOCTYPES``, read access to it is enough.
 
 	When ``name`` is a submitted Purchase Order for this supplier, its lines are corrected too,
 	so a reprint shows the new values. Draft lines are updated in the form and saved with it.
 	"""
 	_check_doctype(doctype)
-	frappe.has_permission(doctype, "write", throw=True)
+	frappe.has_permission(doctype, "write" if doctype in DOCTYPES else "read", throw=True)
 	frappe.has_permission("Item", "write", throw=True)
 	supplier = _clean(supplier)
 	if not supplier or not frappe.db.exists("Supplier", supplier):

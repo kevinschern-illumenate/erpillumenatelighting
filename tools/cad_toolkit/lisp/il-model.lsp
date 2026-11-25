@@ -3,11 +3,14 @@
 ;;; (il-commands.lsp) and CI runs everything here against the shared fixtures.
 ;;;
 ;;; Model: an association list with "drawing", "rooms", "cabinets", "runs", "styles", "psus",
-;;; "wires", "controls", "zones", "others" and "overrides". A run is an association list ("id" "handle" "fixture_type"
+;;; "wires", "controls", "zones", "groups", "others" and "overrides". A run is an association list ("id" "handle" "fixture_type"
 ;;; "room" "location" "style" "vertices" "closed" "breaks" "spans" "start_feed" "lead_in" "jumper_in"
 ;;; "feed_method" "feed_handles" "cabinet" "psu_hint" "notes" "line_key" "configured_name"
-;;; "config_hash" "layout" ...). Styles are catalog style objects (IL-OBJ) with an "id". Runs and rooms
-;;; carry the layout that owns them (DXF group 410; nil reads as model space).
+;;; "config_hash" "copies" "label" "layout" ...). Styles are catalog style objects (IL-OBJ) with an "id". Runs
+;;; and rooms carry the layout that owns them (DXF group 410; nil reads as model space). A group is an
+;;; association list ("id" "handle" "fixture_type" "room" "location" "runs" "include" "allocation"
+;;; "override" "notes" "line_key" "configured_name" "config_hash" "part_number" "layout"): runs quoted as
+;;; one multi-run group line; "include" is "0" when supplies are excluded.
 
 (setq *il-package-schema* "ilq/2")
 (setq *il-length-tolerance* 0.05)
@@ -96,14 +99,114 @@
   found
 )
 
-(defun il-run-fed-p (model run-id / fed)
+(defun il-run-fed-p (model run-id / fed group)
+  (setq group (il-run-group model run-id))
   (foreach psu (il-get "psus" model)
     (if (member run-id (il-get "runs" psu)) (setq fed T))
   )
   (foreach wire (il-get "wires" model)
     (if (or (= (il-get "to" wire) run-id) (= (il-get "from" wire) run-id)) (setq fed T))
+    ;; A wire into a group's tag feeds every run of the group.
+    (if (and group (or (= (il-get "to" wire) (il-get "id" group)) (= (il-get "from" wire) (il-get "id" group))))
+      (setq fed T)
+    )
   )
   fed
+)
+
+;; --- Groups -----------------------------------------------------------------------------------
+
+(setq *il-group-families* '("Linear Fixture" "LED Tape" "COB Tape" "LED Neon"))
+(setq *il-max-group-members* 12)
+
+;; The group that lists RUN-ID, or nil.
+(defun il-run-group (model run-id / found)
+  (foreach group (il-get "groups" model)
+    (if (and (null found) (member run-id (il-get "runs" group))) (setq found group))
+  )
+  found
+)
+
+;; Identical runs stacked on a run's drawn path (1 when not stacked).
+(defun il-run-copies (run / copies)
+  (setq copies (il-get "copies" run))
+  (if (and (numberp copies) (> copies 1)) (fix copies) 1)
+)
+
+;; A run's load times its stacked copies: every copy is fed.
+(defun il-copies-load (watts run)
+  (if (> (il-run-copies run) 1) (* watts (il-run-copies run)) watts)
+)
+
+(defun il-group-include-p (group) (/= (il-str (il-get "include" group)) "0"))
+
+;; Strings in TEXTS without repeats, sorted.
+(defun il-unique-sorted (texts / result)
+  (foreach text texts
+    (if (not (member text result)) (setq result (cons text result)))
+  )
+  (vl-sort result '<)
+)
+
+;; Model rules for groups (ref: the group id), then stacked runs in no group (ref: the run id).
+(defun il-check-groups (model / issues seen runs members count style styles family types rooms feeds group-id)
+  (foreach group (il-get "groups" model)
+    (setq group-id (il-get "id" group) members nil)
+    (foreach run-id (il-get "runs" group)
+      (setq runs (vl-remove-if-not '(lambda (run) (= (il-get "id" run) run-id)) (il-get "runs" model)))
+      (cond
+        ((null runs) (il-add "GROUP_UNKNOWN_RUN" group-id "error" (strcat "Run " (il-str run-id) " is not in the drawing")))
+        ((member run-id seen) (il-add "GROUP_RUN_IN_TWO_GROUPS" group-id "error" (strcat "Run " run-id " is already in another group")))
+      )
+      (if runs (setq members (append members (list (car runs)))))
+      (setq seen (cons run-id seen))
+    )
+    (if (null members)
+      (il-add "GROUP_EMPTY" group-id "error" "The group has no runs; add runs with ILGROUP")
+      (progn
+        (setq count 0 styles nil)
+        (foreach run members (setq count (+ count (il-run-copies run))))
+        (if (> count *il-max-group-members*)
+          (il-add "GROUP_TOO_MANY" group-id "error"
+            (strcat (itoa count) " runs, copies included; a group holds at most " (itoa *il-max-group-members*)))
+        )
+        (foreach run members
+          (setq style (il-model-style model (il-get "style" run)))
+          (setq style (if style (il-package-style style)))
+          (if (not (member style styles)) (setq styles (cons style styles)))
+        )
+        (if (> (length styles) 1)
+          (il-add "GROUP_MIXED_STYLE" group-id "error" "Runs in a group need one style; apply one with ILSTYLE")
+        )
+        (setq family (il-j (il-model-style model (il-get "style" (car members))) "family"))
+        (if (not (member family *il-group-families*))
+          (il-add "GROUP_FAMILY" group-id "error" (strcat (il-str family) " runs cannot be grouped"))
+        )
+        (setq types (il-unique-sorted (vl-remove (il-str (il-get "fixture_type" group))
+                                                 (mapcar '(lambda (run) (il-str (il-get "fixture_type" run))) members))))
+        (if types
+          (il-add "GROUP_MIXED_TYPE" group-id "error"
+            (strcat "Runs of Type " (il-join types ", ") " in a group of Type " (il-str (il-get "fixture_type" group))))
+        )
+        (setq rooms (il-unique-sorted (vl-remove-if '(lambda (room) (or (null room) (= room "")))
+                                                    (cons (il-get "room" group) (mapcar '(lambda (run) (il-get "room" run)) members)))))
+        (if (> (length rooms) 1)
+          (il-add "GROUP_MIXED_ROOM" group-id "error" (strcat "Runs in rooms " (il-join rooms ", ") "; a group is in one room"))
+        )
+        (setq feeds (il-unique-sorted (mapcar '(lambda (run) (if (il-get "feed_method" run) (il-get "feed_method" run) "end")) members)))
+        (if (> (length feeds) 1)
+          (il-add "GROUP_MIXED_FEED" group-id "warning"
+            (strcat "Runs fed " (il-join feeds ", ") "; the System Designer uses one feed method for the group"))
+        )
+      )
+    )
+  )
+  (foreach run (il-get "runs" model)
+    (if (and (> (il-run-copies run) 1) (not (member (il-get "id" run) seen)))
+      (il-add "COPIES_NOT_IN_GROUP" (il-get "id" run) "error" "A stacked run must be in a group; run ILUPDATE")
+    )
+  )
+  (reverse issues)
 )
 
 ;; Adds to the ISSUES list of the il-check call running (AutoLISP variables are dynamically scoped).
@@ -211,7 +314,7 @@
           (if (member (il-get "id" run) (il-get "runs" psu))
             (progn
               (setq hint (il-run-hint run (il-model-style model (il-get "style" run)) catalog))
-              (if (il-get "watts" hint) (setq loads (cons (il-get "watts" hint) loads)))
+              (if (il-get "watts" hint) (setq loads (cons (il-copies-load (il-get "watts" hint) run) loads)))
             )
           )
         )
@@ -224,7 +327,7 @@
       )
     )
   )
-  (append (reverse issues) (il-check-controls model catalog))
+  (append (reverse issues) (il-check-controls model catalog) (il-check-groups model))
 )
 
 ;; (errors warnings): issues an override covers do not count.
@@ -371,9 +474,31 @@
   (setq pairs (il-opt "cabinet" (il-get "cabinet" run) pairs))
   (setq pairs (il-opt "psu_hint" (il-get "psu_hint" run) pairs))
   (setq pairs (il-opt "notes" (il-get "notes" run) pairs))
+  (if (> (il-run-copies run) 1) (setq pairs (append pairs (list (cons "copies" (il-run-copies run))))))
+  (setq pairs (il-opt "label" (il-get "label" run) pairs))
   (setq erp (il-opt "line_key" (il-get "line_key" run) nil))
   (setq erp (il-opt "configured_name" (il-get "configured_name" run) erp))
   (setq erp (il-opt "config_hash" (il-get "config_hash" run) erp))
+  (il-obj (append pairs (list (cons "erp" (il-obj erp)))))
+)
+
+;; A group as the package lists it: its runs, Type, room and power policy.
+(defun il-package-group (group sheets / pairs erp power)
+  (setq pairs (list (cons "id" (il-get "id" group)) (cons "handle" (il-get "handle" group))
+                    (cons "fixture_type" (il-get "fixture_type" group))))
+  (setq pairs (il-opt "room" (il-get "room" group) pairs))
+  (setq pairs (il-opt "sheet" (il-sheet-for sheets (il-item-layout group)) pairs))
+  (setq pairs (il-opt "location" (il-get "location" group) pairs))
+  (setq power (list (cons "include_supplies" (il-bool (il-group-include-p group)))
+                    (cons "allocation" (if (= (il-get "allocation" group) "per_run") "per_run" "grouped"))))
+  (if (and (numberp (il-get "override" group)) (> (il-get "override" group) 0))
+    (setq power (append power (list (cons "override_max_run_ft" (il-get "override" group)))))
+  )
+  (setq pairs (append pairs (list (cons "runs" (il-arr (il-get "runs" group))) (cons "power" (il-obj power)))))
+  (setq pairs (il-opt "notes" (il-get "notes" group) pairs))
+  (setq erp (il-opt "line_key" (il-get "line_key" group) nil))
+  (setq erp (il-opt "configured_name" (il-get "configured_name" group) erp))
+  (setq erp (il-opt "config_hash" (il-get "config_hash" group) erp))
   (il-obj (append pairs (list (cons "erp" (il-obj erp)))))
 )
 
@@ -383,6 +508,7 @@
   (setq drawing (il-get "drawing" model) overrides (il-get "overrides" model) sheets (il-model-sheets model))
   (setq counts (il-issue-counts issues overrides))
   (il-obj
+    (append
     (list
       (cons "schema" *il-package-schema*)
       (cons "toolkit" (il-obj (list (cons "version" *il-version*) (cons "platform" platform))))
@@ -433,6 +559,11 @@
       (cons "zones" (il-package-zones model))
       (cons "other_lines" (il-arr (il-get "others" model)))
     )
+    ;; Drawings without groups keep the 0.5.x package (and content hash).
+    (if (il-get "groups" model)
+      (list (cons "groups" (il-arr (mapcar '(lambda (group) (il-package-group group sheets)) (il-get "groups" model)))))
+    )
+    )
   )
 )
 
@@ -476,6 +607,23 @@
   (if (= (il-j receipt "schema") "ilq-receipt/1")
     (mapcar '(lambda (pair) (cons (car pair) (cdr pair))) (cdr (il-j receipt "controls")))
   )
+)
+
+;; ((group-id . receipt-group-object) ...) from a receipt (multi-run groups).
+(defun il-receipt-groups (receipt)
+  (if (= (il-j receipt "schema") "ilq-receipt/1")
+    (mapcar '(lambda (group) (cons (il-j group "id") group)) (il-items (il-j receipt "groups")))
+  )
+)
+
+;; The group with the receipt's ERP keys and group part number stamped on it.
+(defun il-group-with-receipt (group index / entry)
+  (if (setq entry (cdr (assoc (il-get "id" group) index)))
+    (foreach key '("line_key" "configured_name" "config_hash" "part_number")
+      (setq group (il-put key (il-j entry key) group))
+    )
+  )
+  group
 )
 
 ;; The run with the receipt's ERP keys, part number and server length stamped on it.

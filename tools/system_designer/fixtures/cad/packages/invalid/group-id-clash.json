@@ -1,0 +1,93 @@
+{
+ "schema": "ilq/2",
+ "toolkit": {
+  "version": "0.3.0",
+  "platform": "AutoCAD LT 2025"
+ },
+ "catalog": {
+  "snapshot_hash": "0000000000000000000000000000000000000000000000000000000000000001",
+  "generated_at": "2026-11-20 09:00:00"
+ },
+ "target": {},
+ "drawing": {
+  "file": "shelves.dwg",
+  "rev": 0,
+  "hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "units": "in",
+  "scale_verified": false
+ },
+ "runs": [
+  {
+   "id": "T1-01",
+   "handle": "1A",
+   "fixture_type": "T1",
+   "style": {
+    "family": "LED Tape",
+    "template": "led-hd-sw",
+    "selections": {
+     "environment_rating": "Dry",
+     "cct": "2700K",
+     "output_level": "300 lm/ft",
+     "feed_type": "Soldered-End"
+    }
+   },
+   "segments": [
+    {
+     "path_length_in": 96
+    }
+   ],
+   "room": "R-01",
+   "copies": 4,
+   "label": "Shelf"
+  }
+ ],
+ "check": {
+  "errors": 0,
+  "warnings": 0
+ },
+ "rooms": [
+  {
+   "id": "R-01",
+   "name": "Pantry"
+  }
+ ],
+ "cabinets": [
+  {
+   "id": "CAB-1",
+   "room": "R-01"
+  }
+ ],
+ "psus": [
+  {
+   "id": "PS-01",
+   "cabinet": "CAB-1",
+   "runs": [
+    "T1-01"
+   ]
+  }
+ ],
+ "wire_paths": [
+  {
+   "id": "W-01",
+   "from": "PS-01",
+   "to": "G-01",
+   "kind": "lv",
+   "path_length_in": 240
+  }
+ ],
+ "groups": [
+  {
+   "id": "PS-01",
+   "handle": "2B",
+   "fixture_type": "T1",
+   "room": "R-01",
+   "runs": [
+    "T1-01"
+   ],
+   "power": {
+    "include_supplies": true,
+    "allocation": "grouped"
+   }
+  }
+ ]
+}

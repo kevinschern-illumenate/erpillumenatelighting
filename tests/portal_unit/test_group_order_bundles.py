@@ -21,50 +21,134 @@ def schedule(lines, before=None, project="P-1"):
 	)
 
 
+HASH = "a1b2c3d4e5f6" + "0" * 52
+
+
+def linear_member(part_number, *lengths_mm):
+	return {"geometry": {"segments": [{"requested_length_mm": mm} for mm in lengths_mm]},
+		"build": {"part_number": part_number}}
+
+
+def tape_member(part_number, *lengths_mm):
+	segments = [{"manufacturable_length_mm": mm, "manufacturable_length_in": round(mm / 25.4, 2)}
+		for mm in lengths_mm]
+	return {"geometry": {"segments": [{"requested_length_mm": mm} for mm in lengths_mm]},
+		"build": {"part_number": part_number, "computed": {
+			"manufacturable_length_mm": sum(lengths_mm), "segments": segments}}}
+
+
+def sheet_member(part_number, width, height):
+	return {"geometry": {"coverage_width_ft": width, "coverage_height_ft": height},
+		"build": {"part_number": part_number}}
+
+
+def group_build(family, members, template="TPL"):
+	return {"request": {"family": family, "template": template}, "members": members}
+
+
+def free(frappe, items=None):
+	"""Item codes in ``items`` exist with the given owner group; nothing else is taken."""
+	items = items or {}
+	frappe.db.exists.side_effect = lambda doctype, name: doctype == "Item" and name in items
+	frappe.db.get_value.side_effect = lambda doctype, name, field: items.get(name)
+
+
 class GroupPartNumber(unittest.TestCase):
-	def test_prefix_slugifies_and_omits_blank_segments(self):
+	LINEAR = "ILL-SH01-HD-DR-30-HO-FR-SM-WH"
+
+	def test_run_prefix_strips_the_length_and_feed_segments_of_every_family(self):
 		with load_service(ROOT + ".api.group_part_number") as (module, _):
-			self.assertEqual(
-				module.prefix("ILL-SH01-SW", "Smith Residence", "a1", "Lobby / North"),
-				"ILL-SH01-SW-SMITH-RESIDENCE-A1-LOBBY-NORTH",
-			)
-			self.assertEqual(module.prefix("LED-HD-SW", "Smith", "", None), "LED-HD-SW-SMITH")
-			self.assertEqual(module.segment("x" * 50), "X" * 30)
+			cases = [
+				("Linear Fixture", linear_member(self.LINEAR + "-120.0-E10-C", 3048), self.LINEAR),
+				("Linear Fixture", linear_member(self.LINEAR + "-144.0-L6-R4", 3657.6), self.LINEAR),
+				("Linear Fixture", linear_member(self.LINEAR + "-144.0-J(1A2B)", 2438.4, 1219.2), self.LINEAR),
+				("LED Tape", tape_member("TAPE-27-HO-120-E10-C", 3048), "TAPE-27-HO"),
+				# A feed segment with no type code must not be read as the length.
+				("LED Tape", tape_member("TAPE-27-HO-120-10-C", 3048), "TAPE-27-HO"),
+				("LED Tape", tape_member("TAPE-120-C", 3048), "TAPE"),
+				("LED Neon", tape_member("NEON-27-96.5-J(FFFF)", 1219.2, 1231.9), "NEON-27"),
+				("LED Sheet", sheet_member("LS01-DR-30-HO-AD-WH", 4, 6), "LS01-DR-30-HO-AD-WH"),
+			]
+			for family, member, prefix in cases:
+				self.assertEqual(module.run_prefix(family, member), prefix, member["build"]["part_number"])
+			self.assertIsNone(module.run_prefix("LED Tape", {"geometry": {}, "build": {}}))
 
-	def test_suffix_is_four_uppercase_letters_redrawn_only_on_collision(self):
-		with load_service(ROOT + ".api.group_part_number") as (module, frappe):
-			frappe.db.exists.side_effect = [True, False, False]
-			code = module.generate("ILL-SH01-SW-SMITH")
-			base, _, suffix = code.rpartition("-")
-			self.assertEqual(base, "ILL-SH01-SW-SMITH")
-			self.assertEqual(len(suffix), 4)
-			self.assertTrue(suffix.isalpha() and suffix.isupper())
-			self.assertEqual(frappe.db.exists.call_count, 3)
+	def test_total_length_sums_every_run_in_the_familys_format(self):
+		with load_service(ROOT + ".api.group_part_number") as (module, _):
+			linear = [linear_member("", 2438.4), linear_member("", 609.6, 609.6)]
+			self.assertEqual(module.total_length("Linear Fixture", linear), "144.0")
+			tape = [tape_member("", 3048), tape_member("", 1270)]
+			self.assertEqual(module.total_length("LED Tape", tape), "170")
+			self.assertEqual(module.total_length("LED Neon", [tape_member("", 1257.3)]), "49.5")
+			sheets = [sheet_member("", 4, 6), sheet_member("", 2.5, 5)]
+			self.assertEqual(module.total_length("LED Sheet", sheets), "36.5SF")
 
-	def test_assign_keeps_numbers_until_naming_inputs_or_group_change(self):
+	def test_group_number_is_prefix_total_length_and_hash_code(self):
 		with load_service(ROOT + ".api.group_part_number") as (module, frappe):
-			frappe.db.exists.return_value = False
-			frappe.db.get_value.side_effect = lambda doctype, name, field: (
-				"Smith Residence" if doctype == "ilL-Project" else "ILL-SH01-SW"
-			)
-			kept = Line(name="L1", configured_group="G", line_id="A1", location="Lobby",
-				group_part_number="ILL-SH01-SW-SMITH-RESIDENCE-A1-LOBBY-ABCD")
-			moved = Line(name="L2", configured_group="G", line_id="A1", location="Hall",
-				group_part_number="ILL-SH01-SW-SMITH-RESIDENCE-A1-LOBBY-WXYZ")
-			copied = Line(name="L3", configured_group="G", line_id="A1", location="Lobby",
-				group_part_number="ILL-SH01-SW-SMITH-RESIDENCE-A1-LOBBY-ABCD")
-			regrouped = Line(name="L4", configured_group="G2", line_id="A1", location="Lobby",
-				group_part_number="ILL-SH01-SW-SMITH-RESIDENCE-A1-LOBBY-QRST")
-			plain = Line(name="L5", configured_fixture="F", group_part_number="STALE")
-			before = [Record(name=f"L{i}", configured_group="G") for i in range(1, 5)]
-			module.assign(schedule([kept, moved, copied, regrouped, plain], before))
-			self.assertEqual(kept.group_part_number, "ILL-SH01-SW-SMITH-RESIDENCE-A1-LOBBY-ABCD")
-			self.assertEqual(kept.ill_item_code, kept.group_part_number)
-			self.assertTrue(moved.group_part_number.startswith("ILL-SH01-SW-SMITH-RESIDENCE-A1-HALL-"))
-			self.assertNotEqual(copied.group_part_number, kept.group_part_number)
-			self.assertTrue(copied.group_part_number.startswith("ILL-SH01-SW-SMITH-RESIDENCE-A1-LOBBY-"))
-			self.assertNotEqual(regrouped.group_part_number, "ILL-SH01-SW-SMITH-RESIDENCE-A1-LOBBY-QRST")
+			free(frappe)
+			build = group_build("Linear Fixture", [
+				linear_member(self.LINEAR + "-96.0-E10-C", 2438.4),
+				linear_member(self.LINEAR + "-48.0-E2-C", 1219.2),
+			])
+			group = Record(name="G", config_hash=HASH)
+			self.assertEqual(module.for_group(group, build), self.LINEAR + "-144.0-GRP(A1B2)")
+			sheet = group_build("LED Sheet", [sheet_member("LS01-DR-30-HO-AD-WH", 4, 6)] * 2)
+			self.assertEqual(module.for_group(group, sheet), "LS01-DR-30-HO-AD-WH-48SF-GRP(A1B2)")
+
+	def test_one_run_group_matches_the_standalone_part_number_with_a_group_tail(self):
+		with load_service(ROOT + ".api.group_part_number") as (module, frappe):
+			free(frappe)
+			group = Record(name="G", config_hash=HASH)
+			for family, member, standalone_tail in (
+				("Linear Fixture", linear_member(self.LINEAR + "-120.0-E10-C", 3048), "-E10-C"),
+				("LED Tape", tape_member("TAPE-27-HO-120-E10-C", 3048), "-E10-C"),
+				("LED Neon", tape_member("NEON-27-48-J(AAAA)", 609.6, 609.6), "-J(AAAA)"),
+			):
+				standalone = member["build"]["part_number"]
+				expected = standalone[: -len(standalone_tail)] + "-GRP(A1B2)"
+				self.assertEqual(module.for_group(group, group_build(family, [member])), expected)
+
+	def test_code_grows_only_when_another_group_holds_it(self):
+		with load_service(ROOT + ".api.group_part_number") as (module, frappe):
+			build = group_build("LED Tape", [tape_member("TAPE-120-C", 3048)])
+			group = Record(name="G", config_hash=HASH)
+			free(frappe, {"TAPE-120-GRP(A1B2)": "OTHER"})
+			self.assertEqual(module.for_group(group, build), "TAPE-120-GRP(A1B2C)")
+			free(frappe, {"TAPE-120-GRP(A1B2)": "G"})
+			self.assertEqual(module.for_group(group, build), "TAPE-120-GRP(A1B2)")
+			self.assertEqual(module.for_group(group, build, accept=lambda code: False), "TAPE-120-GRP(A1B2C)")
+
+	def test_a_run_without_a_part_number_falls_back_to_the_template(self):
+		with load_service(ROOT + ".api.group_part_number") as (module, frappe):
+			free(frappe)
+			build = group_build("LED Tape", [tape_member("", 3048)], template="Shelf Tape")
+			self.assertEqual(module.for_group(Record(name="G", config_hash=HASH), build),
+				"SHELF-TAPE-120-GRP(A1B2)")
+
+	def test_assign_keeps_quoted_numbers_and_numbers_new_or_changed_groups(self):
+		with load_service(ROOT + ".api.group_part_number") as (module, frappe):
+			free(frappe, {"OLD-FORMAT-ABCD": "G", "G2-NUMBER": "G2"})
+			numbers = {"G": "NEW-G-GRP(A1B2)", "G2": "NEW-G2-GRP(C3D4)"}
+			frappe.get_doc.side_effect = lambda doctype, name: Record(name=name)
+			legacy = Line(name="L1", configured_group="G", group_part_number="OLD-FORMAT-ABCD")
+			copied = Line(name="L2", configured_group="G", group_part_number="OLD-FORMAT-ABCD")
+			fresh = Line(name="L3", configured_group="G")
+			regrouped = Line(name="L4", configured_group="G2", group_part_number="OLD-FORMAT-ABCD")
+			desk = Line(name="L5", configured_group="G2", group_part_number="G2-NUMBER")
+			plain = Line(name="L6", configured_fixture="F", group_part_number="STALE")
+			before = [Record(name="L1", configured_group="G"), Record(name="L4", configured_group="G"),
+				Record(name="L5", configured_group="G")]
+			with patch.object(module, "for_group", side_effect=lambda group: numbers[group.name]) as made:
+				module.assign(schedule([legacy, copied, fresh, regrouped, desk, plain], before))
+			self.assertEqual(legacy.ill_item_code, "OLD-FORMAT-ABCD")
+			self.assertEqual(copied.ill_item_code, "OLD-FORMAT-ABCD")
+			self.assertEqual(fresh.group_part_number, "NEW-G-GRP(A1B2)")
+			self.assertEqual(fresh.ill_item_code, "NEW-G-GRP(A1B2)")
+			self.assertEqual(regrouped.group_part_number, "NEW-G2-GRP(C3D4)")
+			# A line moved to a group whose bundle already carries its number keeps it.
+			self.assertEqual(desk.ill_item_code, "G2-NUMBER")
 			self.assertIsNone(plain.group_part_number)
+			self.assertEqual(made.call_count, 2)
 
 
 def _order_service(extra=None):
@@ -116,11 +200,9 @@ class GroupOrderBundle(unittest.TestCase):
 			_ensure_default_uom_exists=MagicMock(),
 			_ensure_item_group_exists=MagicMock(),
 		)
-		display = types.SimpleNamespace(run_labels=lambda _line: {})
 		extras = _order_service({
 			ROOT + ".api.fixture_group_bom": bom_module,
 			ROOT + ".api.manufacturing_generator": generator,
-			ROOT + ".portal.group_display": display,
 		})
 		with load_service(ROOT + ".api.fixture_group_order", extras) as (module, frappe):
 			group = Record(name="HASH", family="Linear Fixture", template="ILL-SH01-SW", engine_version="g1")
@@ -139,7 +221,7 @@ class GroupOrderBundle(unittest.TestCase):
 			line = Line(name="L1", configured_group="HASH", group_part_number="ILL-SH01-SW-SMITH-A1-LOBBY-ABCD")
 			target = Record(company="ilLumenate Lighting")
 			with patch.object(module, "build_member", side_effect=lambda *_: next(runs)):
-				artifact = module.ensure_order_bundle(Record(), line, target)
+				artifact = module.ensure_order_bundle("HASH", {}, target, line=line)
 			item, bundle = inserted
 			self.assertEqual(item["item_code"], "ILL-SH01-SW-SMITH-A1-LOBBY-ABCD")
 			self.assertEqual(item["item_name"], "Shelf Light multi-run group (3 runs)")
@@ -153,6 +235,25 @@ class GroupOrderBundle(unittest.TestCase):
 			self.assertEqual(artifact["item_code"], item["item_code"])
 			self.assertIsNone(artifact["bom"])
 			self.assertEqual(artifact["configured_group"], "HASH")
+
+	def test_part_number_without_a_schedule_line_is_the_groups_own(self):
+		numbering = types.SimpleNamespace(for_group=MagicMock(return_value="ILL-X-144.0-GRP(A1B2)"))
+		extras = _order_service({ROOT + ".api.group_part_number": numbering})
+		with load_service(ROOT + ".api.fixture_group_order", extras) as (module, frappe):
+			group = Record(name="HASH")
+			frappe.db.exists.return_value = False
+			self.assertEqual(module._part_number(group, {}, [], None), "ILL-X-144.0-GRP(A1B2)")
+			# A line keeps a quoted number (any format) while it is this group's bundle.
+			line = Line(name="L1", doctype="Line", group_part_number="OLD-ABCD")
+			frappe.db.exists.side_effect = lambda doctype, name: doctype == "Item"
+			frappe.db.get_value.return_value = "HASH"
+			with patch.object(module, "_bundle_matches", return_value=True):
+				self.assertEqual(module._part_number(group, {}, [], line), "OLD-ABCD")
+			# Another group's Item: the line takes the group's own number.
+			frappe.db.get_value.return_value = "OTHER"
+			self.assertEqual(module._part_number(group, {}, [], line), "ILL-X-144.0-GRP(A1B2)")
+			self.assertEqual(line.group_part_number, "ILL-X-144.0-GRP(A1B2)")
+			frappe.db.set_value.assert_called_once()
 
 	def test_run_must_keep_the_materials_its_group_pinned(self):
 		saved = Record(doctype="ilL-Configured-Fixture", name="CF")

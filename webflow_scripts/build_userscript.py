@@ -1,9 +1,14 @@
-"""Build staging.user.js: the product page scripts as one Tampermonkey userscript for the staging
-site, which has no Site plan and so cannot hold custom code.
+"""Build staging.user.js and production.user.js: the product page scripts as one Tampermonkey
+userscript.
 
     python3 webflow_scripts/build_userscript.py
 
-The userscript runs only on staging-illumenate.webflow.io product pages, at document-start in the
+staging.user.js is for the staging site, which has no Site plan and so cannot hold custom code.
+production.user.js runs the same scripts on illumenate.lighting product pages, in your browser
+only, so the repo versions can be checked against production data before they are pasted into the
+page's custom code and Code Embeds (owner, 2026-11-24). Visitors are not affected.
+
+The userscript runs at document-start in the
 page itself (so jQuery, Webflow and the DOMContentLoaded listeners work as they do in custom code).
 <script src> tags become @require, <style> blocks are added to the page, inline scripts run in
 file order. Elements that hold CMS data ({{wf:...}} placeholders) cannot come from a userscript:
@@ -26,10 +31,26 @@ ORDER = [
 	"compatible-products-json.html",
 	"products-collection-before-body.html",
 ]
-MATCHES = [
-	"https://staging2-illumenate.webflow.io/products/*",
-	"https://staging-illumenate.webflow.io/products/*",
-]
+TARGETS = {
+	"staging.user.js": {
+		"name": "ilLumenate staging product page scripts",
+		"description": "Main-site product page custom code, for testing on the staging Webflow site",
+		"matches": [
+			"https://staging2-illumenate.webflow.io/products/*",
+			"https://staging-illumenate.webflow.io/products/*",
+		],
+	},
+	"production.user.js": {
+		"name": "ilLumenate production product page scripts (preview)",
+		"description": "Repo product page code on illumenate.lighting, in this browser only, before it is pasted into Webflow",
+		"matches": [
+			"https://illumenate.lighting/products/*",
+			"https://www.illumenate.lighting/products/*",
+			# The production site's own webflow.io staging domain (publish there first).
+			"https://illumenate-staging.webflow.io/products/*",
+		],
+	},
+}
 
 
 # The staging site kept the main site's Code Embeds when it was duplicated, and they still run
@@ -100,7 +121,7 @@ def others(code, known):
 	return found
 
 
-def build():
+def build(output, target):
 	requires, css, links, code, holders = [], [], [], [], []
 	for name in ORDER:
 		r, s, link, c, h = parts((HERE / name).read_text(encoding="utf-8"))
@@ -111,11 +132,11 @@ def build():
 		holders += h
 	header = [
 		"// ==UserScript==",
-		"// @name         ilLumenate staging product page scripts",
+		f"// @name         {target['name']}",
 		"// @namespace    https://illumenate.lighting/",
 		"// @version      2026.11.24.1",
-		"// @description  Main-site product page custom code, for testing on the staging Webflow site",
-		*[f"// @match        {match}" for match in MATCHES],
+		f"// @description  {target['description']}",
+		*[f"// @match        {match}" for match in target["matches"]],
 		"// @run-at       document-start",
 		"// @grant        none",
 		# No @require: the page's copied Code Embeds already load Finsweet and Swiper (owner,
@@ -154,9 +175,10 @@ def build():
 	text = "\n".join(line.rstrip() for line in text.split("\n"))
 	# From here on, registrations come from the page's old copies.
 	text += "\nwindow.__illStaging.own = false;\n"
-	(HERE / "staging.user.js").write_text(text, encoding="utf-8")
+	(HERE / output).write_text(text, encoding="utf-8")
 
 
 if __name__ == "__main__":
-	build()
-	print("webflow_scripts/staging.user.js written")
+	for output, target in TARGETS.items():
+		build(output, target)
+		print(f"webflow_scripts/{output} written")

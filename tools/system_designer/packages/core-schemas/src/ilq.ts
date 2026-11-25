@@ -12,6 +12,8 @@ import { EnvChoiceSchema } from './design';
 export const ILQ_SCHEMA = 'ilq/2';
 export const ILQ_MAX_RUNS = 1000;
 export const ILQ_MAX_BYTES = 5 * 1024 * 1024;
+/** A multi-run group's member limit, copies included: the portal group engine's (`group_contract`). */
+export const ILQ_MAX_GROUP_MEMBERS = 12;
 
 /** A CAD id: run, room, cabinet, PSU or wire tag (`L1-01`, `CAB-1`, `PS-01`, `W-01`). */
 export const CadIdSchema = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$/);
@@ -147,10 +149,47 @@ export const IlqRunSchema = z
     cabinet: CadIdSchema.nullish(),
     psu_hint: Text(140).nullish(),
     notes: Text(1000).nullish(),
+    /**
+     * Identical runs stacked on this drawn path (shelves above each other): each copy is one member of
+     * the run's group. Only a run in a group may have more than one.
+     */
+    copies: z.number().int().min(1).max(ILQ_MAX_GROUP_MEMBERS).default(1),
+    /** The member label stem ("Shelf" gives "Shelf 1", "Shelf 2"…); the run id when blank. */
+    label: Text(60).nullish(),
     erp: IlqErpKeysSchema.default({}),
   })
   .strict();
 export type IlqRun = z.infer<typeof IlqRunSchema>;
+
+/** How a group's included supplies may share outputs (`power_planner` allocation modes). */
+export const GROUP_ALLOCATIONS = ['per_run', 'grouped'] as const;
+
+/**
+ * Runs quoted as one multi-run group line (`ilL-Configured-Group`): one schedule Type, room, style and
+ * power plan for every member. A member is a drawn run, or one copy of a stacked run.
+ */
+export const IlqGroupSchema = z
+  .object({
+    id: CadIdSchema,
+    handle: HandleSchema,
+    fixture_type: z.string().trim().min(1).max(140),
+    room: CadIdSchema.nullish(),
+    sheet: CadIdSchema.nullish(),
+    location: Text(140).nullish(),
+    runs: z.array(CadIdSchema).min(1).max(ILQ_MAX_GROUP_MEMBERS),
+    power: z
+      .object({
+        include_supplies: z.boolean().default(true),
+        allocation: z.enum(GROUP_ALLOCATIONS).default('grouped'),
+        override_max_run_ft: z.number().finite().positive().max(10_000).nullish(),
+      })
+      .strict()
+      .default({ include_supplies: true, allocation: 'grouped' }),
+    notes: Text(1000).nullish(),
+    erp: IlqErpKeysSchema.default({}),
+  })
+  .strict();
+export type IlqGroup = z.infer<typeof IlqGroupSchema>;
 
 /** Zone control methods: the System Designer's zone methods (`ZoneSchema.method`). */
 export const ZONE_METHODS = [
@@ -283,6 +322,7 @@ export const IlqPackageSchema = z
     controls: z.array(IlqControlSchema).max(500).default([]),
     counts: z.array(IlqCountSchema).max(2000).default([]),
     zones: z.array(IlqZoneSchema).max(500).default([]),
+    groups: z.array(IlqGroupSchema).max(500).default([]),
     check: z
       .object({
         errors: z.number().int().nonnegative(),
@@ -391,6 +431,40 @@ export const IlqPackageSchema = z
         zoned.add(run);
       });
     });
+    const groups = unique(pkg.groups, 'groups');
+    for (const id of groups)
+      if (runs.has(id) || psus.has(id) || cabinets.has(id) || controls.has(id))
+        ctx.addIssue({ code: 'custom', path: ['groups'], message: `Group id is used elsewhere: ${id}` });
+    const copiesOf = new Map(pkg.runs.map((run) => [run.id, run.copies ?? 1]));
+    const grouped = new Set<string>();
+    pkg.groups.forEach((group, index) => {
+      if (group.room && !rooms.has(group.room))
+        ctx.addIssue({ code: 'custom', path: ['groups', index, 'room'], message: `Unknown room: ${group.room}` });
+      knownSheet(group.sheet, ['groups', index, 'sheet']);
+      const handle = group.handle.toUpperCase();
+      if (handles.has(handle))
+        ctx.addIssue({ code: 'custom', path: ['groups', index, 'handle'], message: `Duplicate handle: ${group.handle}` });
+      handles.add(handle);
+      let members = 0;
+      group.runs.forEach((run, position) => {
+        if (!runs.has(run))
+          ctx.addIssue({ code: 'custom', path: ['groups', index, 'runs', position], message: `Unknown run: ${run}` });
+        else if (grouped.has(run))
+          ctx.addIssue({ code: 'custom', path: ['groups', index, 'runs', position], message: `Run is in two groups: ${run}` });
+        grouped.add(run);
+        members += copiesOf.get(run) ?? 1;
+      });
+      if (members > ILQ_MAX_GROUP_MEMBERS)
+        ctx.addIssue({
+          code: 'custom',
+          path: ['groups', index, 'runs'],
+          message: `A group holds at most ${ILQ_MAX_GROUP_MEMBERS} runs, copies included; this one has ${members}`,
+        });
+    });
+    pkg.runs.forEach((run, index) => {
+      if ((run.copies ?? 1) > 1 && !grouped.has(run.id))
+        ctx.addIssue({ code: 'custom', path: ['runs', index, 'copies'], message: `Stacked run ${run.id} is in no group` });
+    });
     pkg.counts.forEach((count, index) => {
       knownSheet(count.sheet, ['counts', index, 'sheet']);
       if (count.room && !rooms.has(count.room))
@@ -405,7 +479,7 @@ export const IlqPackageSchema = z
             message: `Drawing says its scale is verified but sheet ${sheet.id} is ${sheet.scale.status}`,
           });
       });
-    const ends = new Set([...runs, ...psus, ...cabinets, ...controls]);
+    const ends = new Set([...runs, ...psus, ...cabinets, ...controls, ...groups]);
     pkg.wire_paths.forEach((wire, index) => {
       for (const end of ['from', 'to'] as const)
         if (!ends.has(wire[end]))

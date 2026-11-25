@@ -233,6 +233,8 @@
     (cons "config_hash" (il-get "config_hash" x))
     (cons "part_number" (il-get "part_number" x))
     (cons "server_in" (il-number (il-get "server_in" x)))
+    (cons "copies" (il-number (il-get "copies" x)))
+    (cons "label" (il-get "label" x))
     (cons "layout" (cdr (assoc 410 (entget ename))))
   )
 )
@@ -701,7 +703,7 @@
   (il-delete-tags (il-handle ename))
   (il-run-markers run (il-handle ename))
   (setq tag (il-insert "IL-RUNTAG" (il-run-anchor run) (il-symbol-scale) "E-ANNO-TAGS"
-              (list (cons "TAG" (il-get "id" run))
+              (list (cons "TAG" (strcat (il-get "id" run) (if (> (il-run-copies run) 1) (strcat " x" (itoa (il-run-copies run))) "")))
                     (cons "STYLE" (if style (il-style-label style) "no style"))
                     (cons "LENGTH" (if (il-get "server_in" run)
                                      (strcat (il-num->str (il-get "server_in" run) 2) " in built")
@@ -716,12 +718,14 @@
 
 ;; Kinds that carry an id, and the attribute that shows it (on the entity when it is a block, else
 ;; on the tag it owns). Run tags are redrawn by il-tag-run, so runs need none.
-(setq *il-copy-kinds* '(("RUN" nil) ("ROOM" "ID") ("WIRE" "TAG") ("CABINET" "TAG") ("PSU" "TAG") ("CONTROL" "TAG")))
+(setq *il-copy-kinds* '(("RUN" nil) ("GROUP" "TAG") ("ROOM" "ID") ("WIRE" "TAG") ("CABINET" "TAG") ("PSU" "TAG") ("CONTROL" "TAG")))
 
 ;; What a copy must not inherit: the portal line its original was imported as, the runs a PSU
-;; feeds, a fixed DMX address.
+;; feeds, a fixed DMX address. A copied group keeps its run list until il-relink-group-copies swaps
+;; it for the copies of those runs.
 (setq *il-copy-resets*
   '(("RUN" ("line_key") ("configured_name") ("config_hash") ("part_number") ("server_in") ("feed_handles"))
+    ("GROUP" ("line_key") ("configured_name") ("config_hash") ("part_number"))
     ("PSU" ("runs"))
     ("CONTROL" ("start" . "auto"))))
 
@@ -765,7 +769,7 @@
 
 ;; COPY, ARRAY and paste duplicate XData, id included. Give every copy its own id, drop what it must
 ;; not inherit, and record each entity's own handle ("self") so later copies are told apart.
-(defun il-fix-copies (verbose / kind attribute enames x records copy original old id block-p)
+(defun il-fix-copies (verbose / kind attribute enames x records copy original old id block-p copied)
   (foreach row *il-copy-kinds*
     (setq kind (car row) attribute (cadr row) enames (il-entities kind) records nil)
     (foreach ename enames
@@ -779,10 +783,38 @@
       (if (and attribute block-p) (il-set-attribute copy attribute id))
       (if original (il-adopt-tags original copy (if block-p nil attribute) id))
       (if verbose (princ (strcat "\nCopy of " old " is now " id ".")))
+      (setq copied (cons (list kind old id copy) copied))
     )
     (foreach ename enames
       (if (/= (il-get "self" (il-xget ename)) (il-handle ename))
         (il-xupdate ename (list (cons "self" (il-handle ename))))
+      )
+    )
+  )
+  (il-relink-group-copies copied)
+)
+
+;; A group tag copied with its runs (COPY or ARRAY of a whole shelving bay) lists those runs' copies:
+;; for each run of the original, its copy nearest the new tag. Runs not copied with it are left out.
+(defun il-relink-group-copies (copied / runs x point kept best best-d d)
+  (setq runs (vl-remove-if-not '(lambda (row) (= (car row) "RUN")) copied))
+  (foreach row copied
+    (if (= (car row) "GROUP")
+      (progn
+        (setq x (il-xget (cadddr row)) point (il-xy (il-ref-point (cadddr row))) kept nil)
+        (foreach old (il-id-list (il-get "runs" x))
+          (setq best nil best-d nil)
+          (foreach candidate runs
+            (if (= (cadr candidate) old)
+              (progn
+                (setq d (distance point (il-xy (il-ref-point (cadddr candidate)))))
+                (if (or (null best-d) (< d best-d)) (setq best candidate best-d d))
+              )
+            )
+          )
+          (if best (setq kept (append kept (list (caddr best))) runs (vl-remove best runs)))
+        )
+        (il-xupdate (cadddr row) (list (cons "runs" (if kept (il-join kept ",")))))
       )
     )
   )
@@ -1094,7 +1126,7 @@
   (foreach run (il-get "runs" model)
     (if (member (il-get "id" run) (if (il-get "runs" x) (il-split (il-get "runs" x) ",")))
       (if (il-get "watts" (setq hint (il-run-hint run (il-model-style model (il-get "style" run)) (il-catalog))))
-        (setq loads (cons (il-get "watts" hint) loads))
+        (setq loads (cons (il-copies-load (il-get "watts" hint) run) loads))
       )
     )
   )
@@ -1130,6 +1162,15 @@
       (progn
         (setq kept (vl-remove-if-not '(lambda (id) (member id ids)) (il-split (il-get "runs" x) ",")))
         (if (/= (length kept) (length (il-split (il-get "runs" x) ","))) (il-xupdate psu (list (cons "runs" (il-join kept ",")))))
+      )
+    )
+  )
+  (foreach group (il-entities "GROUP")
+    (setq x (il-xget group))
+    (if (il-get "runs" x)
+      (progn
+        (setq kept (vl-remove-if-not '(lambda (id) (member id ids)) (il-id-list (il-get "runs" x))))
+        (if (/= (length kept) (length (il-id-list (il-get "runs" x)))) (il-xupdate group (list (cons "runs" (if kept (il-join kept ","))))))
       )
     )
   )
@@ -1255,7 +1296,7 @@
   (if value (fix value) 0)
 )
 
-(defun il-model (/ runs rooms cabinets psus wires controls x drawing)
+(defun il-model (/ runs rooms cabinets psus wires controls x drawing groups)
   (foreach ename (il-entities "ROOM")
     (setq x (il-xget ename))
     (setq rooms (cons (list (cons "id" (il-get "id" x)) (cons "name" (il-get "name" x)) (cons "level" (il-get "level" x)) (cons "env" (il-get "env" x))
@@ -1263,6 +1304,7 @@
                       rooms))
   )
   (foreach ename (il-entities "RUN") (setq runs (cons (il-run-from-entity ename) runs)))
+  (foreach ename (il-entities "GROUP") (setq groups (cons (il-group-from-entity ename) groups)))
   (foreach ename (il-entities "CABINET")
     (setq x (il-xget ename))
     (setq cabinets (cons (list (cons "id" (il-get "id" x)) (cons "room" (il-get "room" x)) (cons "location_rating" (il-get "rating" x)) (cons "access_note" (il-get "access" x))) cabinets))
@@ -1307,6 +1349,7 @@
                                    (cons "control" (il-j zone "control")) (cons "port" (il-j zone "port"))
                                    (cons "runs" (il-items (il-j zone "runs")))))
                           (il-zones)))
+    (cons "groups" (vl-sort (reverse groups) '(lambda (a b) (< (il-str (il-get "id" a)) (il-str (il-get "id" b))))))
     (cons "others" (il-items (il-fetch-json "OTHERS")))
     (cons "overrides" (mapcar '(lambda (o) (list (cons "code" (il-j o "code")) (cons "ref" (il-j o "ref")) (cons "note" (il-j o "note")))) (il-overrides)))
   )
@@ -1342,9 +1385,11 @@
     )
   )
   (il-prune-links)
+  (il-group-stacked-runs verbose)
   (foreach ename (il-entities "WIRE") (il-tag-wire ename))
   (setq model (il-model))
   (foreach psu (il-entities "PSU") (il-update-psu-tag-in psu model))
+  (il-update-groups model)
   (setq *il-tag-index* nil)
   (if verbose (princ (strcat "\n" (itoa count) " runs updated.")))
   count
@@ -1356,7 +1401,7 @@
   )
 )
 
-(defun c:ILCHECK (/ model issues counts ename overrides last-hash x)
+(defun c:ILCHECK (/ model issues counts ename overrides last-hash x group)
   (il-begin)
   (il-assets-ensure)
   (il-update-all nil)
@@ -1370,10 +1415,16 @@
   (foreach issue issues
     (princ (strcat "\n" (strcase (il-get "severity" issue)) " " (il-get "code" issue) " " (il-str (il-get "ref" issue)) ": " (il-get "text" issue)
                    (if (il-overridden-p issue overrides) " [overridden]" "")))
-    (if (and (/= (il-get "severity" issue) "info") (setq ename (il-find-id "RUN" (il-get "ref" issue))))
-      (progn
+    (cond
+      ((= (il-get "severity" issue) "info"))
+      ((setq ename (il-find-id "RUN" (il-get "ref" issue)))
         (setq *il-layout* (cdr (assoc 410 (entget ename))))
         (il-insert "IL-ISSUE" (il-run-anchor (il-run-from-entity ename)) (il-symbol-scale) "E-ANNO-ISSU" (list (cons "CODE" (il-get "code" issue))))
+        (setq *il-layout* nil)
+      )
+      ((setq ename (il-find-id "GROUP" (il-get "ref" issue)))
+        (setq *il-layout* (cdr (assoc 410 (entget ename))))
+        (il-insert "IL-ISSUE" (cdr (assoc 10 (entget ename))) (il-symbol-scale) "E-ANNO-ISSU" (list (cons "CODE" (il-get "code" issue))))
         (setq *il-layout* nil)
       )
     )
@@ -1381,13 +1432,326 @@
   ;; Red for an open error, yellow for a warning, green when clean (ByLayer once imported).
   (foreach ename (il-entities "RUN")
     (setq x (il-xget ename))
+    (setq group (il-group-entity-of (il-get "id" x)))
     (il-color-run ename (cond ((il-worst-severity issues (il-get "id" x) overrides))
+                              ((and group (il-worst-severity issues (il-get "id" (il-xget group)) overrides)))
                               ((il-get "line_key" x) "imported")
                               (T "ok")))
   )
   (setq counts (il-issue-counts issues overrides))
   (princ (strcat "\nILCHECK: " (itoa (car counts)) " errors, " (itoa (cadr counts)) " warnings"
                  (if (> (car counts) 0) ". Fix or override (ILOVERRIDE) the errors before ILQUOTE." ".")))
+  (il-end)
+)
+
+;; --- Groups: ILGROUP, ILSTACK -----------------------------------------------------------------
+;; A group is runs quoted as one multi-run group line (one schedule Type, room, style and power plan).
+;; Its tag (IL-GROUPTAG) carries the run ids; a run stacked with ILSTACK is one drawn path standing
+;; for several identical runs (shelves above each other), each a member of its group.
+
+(defun il-id-list (text) (if (and text (/= (il-trim text) "")) (il-split text ",")))
+
+;; The group as the model sees it, from its tag and XData.
+(defun il-group-from-entity (ename / x)
+  (setq x (il-xget ename))
+  (list
+    (cons "ename" ename)
+    (cons "id" (il-get "id" x))
+    (cons "handle" (il-handle ename))
+    (cons "fixture_type" (il-get "type" x))
+    (cons "room" (il-get "room" x))
+    (cons "location" (il-get "location" x))
+    (cons "runs" (il-id-list (il-get "runs" x)))
+    (cons "include" (il-get "include" x))
+    (cons "allocation" (il-get "allocation" x))
+    (cons "override" (il-number (il-get "override" x)))
+    (cons "notes" (il-get "notes" x))
+    (cons "line_key" (il-get "line_key" x))
+    (cons "configured_name" (il-get "configured_name" x))
+    (cons "config_hash" (il-get "config_hash" x))
+    (cons "part_number" (il-get "part_number" x))
+    (cons "layout" (cdr (assoc 410 (entget ename))))
+  )
+)
+
+;; The GROUP entity that lists RUN-ID, or nil.
+(defun il-group-entity-of (run-id / found)
+  (foreach ename (il-entities "GROUP")
+    (if (and (null found) (member run-id (il-id-list (il-get "runs" (il-xget ename))))) (setq found ename))
+  )
+  found
+)
+
+(defun il-xcopies (x / copies)
+  (setq copies (il-number (il-get "copies" x)))
+  (if (and copies (> copies 1)) (fix copies) 1)
+)
+
+;; Runs in GROUP (a model group), stacked copies included.
+(defun il-group-count (group model / total)
+  (setq total 0)
+  (foreach run (il-get "runs" model)
+    (if (member (il-get "id" run) (il-get "runs" group)) (setq total (+ total (il-run-copies run))))
+  )
+  total
+)
+
+(defun il-update-group-tag-in (ename model / group)
+  (setq group (il-group-from-entity ename))
+  (il-set-attribute ename "RUNS" (strcat (il-str (il-get "fixture_type" group)) "  " (itoa (il-group-count group model)) " runs"
+                                         (if (il-group-include-p group) "" "  no PSU")))
+  (il-set-attribute ename "PART" (il-str (il-get "part_number" group)))
+)
+
+;; A group's room and location follow its first run; every tag shows Type, run count and part number.
+(defun il-update-groups (model / x lead)
+  (foreach ename (il-entities "GROUP")
+    (setq x (il-xget ename))
+    (setq lead (car (vl-remove-if-not '(lambda (run) (member (il-get "id" run) (il-id-list (il-get "runs" x)))) (il-get "runs" model))))
+    (if (and lead (or (/= (il-str (il-get "room" lead)) (il-str (il-get "room" x)))
+                      (/= (il-str (il-get "location" lead)) (il-str (il-get "location" x)))))
+      (il-xupdate ename (list (cons "room" (il-get "room" lead)) (cons "location" (il-get "location" lead))))
+    )
+    (il-update-group-tag-in ename model)
+  )
+)
+
+;; Where a run's own group tag goes: just under the run tag.
+(defun il-group-tag-point (ename / point)
+  (setq point (il-run-anchor (il-run-from-entity ename)))
+  (list (car point) (- (cadr point) (* 0.9 (il-symbol-scale))) 0.0)
+)
+
+;; A new group tag at POINT for the runs ENAMES, with their room and location and FIXTURE-TYPE (the
+;; runs take it too). POWER: (("include" . "1"/"0") ("allocation" . "grouped"/"per_run")).
+(defun il-make-group (enames point id fixture-type power / lead insert)
+  (setq lead (il-xget (car enames)))
+  (setq *il-layout* (cdr (assoc 410 (entget (car enames)))))
+  (setq insert (il-insert "IL-GROUPTAG" point (il-symbol-scale) "E-ANNO-TAGS" (list (cons "TAG" id))))
+  (setq *il-layout* nil)
+  (il-xset insert (append (list (cons "kind" "GROUP") (cons "id" id) (cons "type" fixture-type)
+                                (cons "runs" (il-join (mapcar '(lambda (e) (il-get "id" (il-xget e))) enames) ","))
+                                (cons "room" (il-get "room" lead)) (cons "location" (il-get "location" lead))
+                                (cons "self" (il-handle insert)))
+                          power))
+  (foreach e enames
+    (if (/= (il-str (il-get "type" (il-xget e))) fixture-type) (il-xupdate e (list (cons "type" fixture-type))))
+  )
+  insert
+)
+
+;; Stacked runs no group lists (copied on their own, or taken off a group) get a group each.
+(defun il-group-stacked-runs (verbose / x id insert)
+  (foreach ename (il-entities "RUN")
+    (setq x (il-xget ename) id (il-get "id" x))
+    (if (and id (> (il-xcopies x) 1) (null (il-group-entity-of id)))
+      (progn
+        (setq insert (il-make-group (list ename) (il-group-tag-point ename) (il-next-id "GROUP" "G-") (il-str (il-get "type" x))
+                                    (list (cons "include" "1") (cons "allocation" "grouped"))))
+        (if verbose (princ (strcat "\nStacked run " id " is now group " (il-get "id" (il-xget insert)) ".")))
+      )
+    )
+  )
+)
+
+;; Takes RUN-IDS off every group but KEEP (a group entity, or nil): a run is in one group.
+(defun il-ungroup-runs (run-ids keep / x listed)
+  (foreach ename (il-entities "GROUP")
+    (if (not (equal ename keep))
+      (progn
+        (setq x (il-xget ename) listed (il-id-list (il-get "runs" x)))
+        (if (vl-some '(lambda (id) (member id run-ids)) listed)
+          (il-xupdate ename (list (cons "runs" (il-join (vl-remove-if '(lambda (id) (member id run-ids)) listed) ","))))
+        )
+      )
+    )
+  )
+)
+
+;; The run entities the user selects.
+(defun il-select-runs (message / ss index ename result)
+  (princ message)
+  (if (setq ss (ssget '((0 . "LWPOLYLINE"))))
+    (progn
+      (setq index 0)
+      (repeat (sslength ss)
+        (setq ename (ssname ss index) index (1+ index))
+        (if (= (il-kind ename) "RUN") (setq result (cons ename result)))
+      )
+    )
+  )
+  (reverse result)
+)
+
+;; Why the runs ENAMES cannot share a group, or nil. Runs with another style are offered the first
+;; run's style (a group has one).
+(defun il-group-runs-problem (enames / lead style family rooms answer)
+  (setq lead (il-xget (car enames)) style (il-get "style" lead))
+  (setq family (if style (il-j (il-style-by-id style) "family")))
+  (setq rooms (il-unique-sorted (vl-remove-if '(lambda (room) (or (null room) (= room "")))
+                                              (mapcar '(lambda (e) (il-get "room" (il-xget e))) enames))))
+  (cond
+    ((null style) "\nGive the runs a style first (ILSTYLE).")
+    ((not (member family *il-group-families*)) (strcat "\n" (il-str family) " runs cannot be grouped."))
+    ((> (length rooms) 1) (strcat "\nThe runs are in rooms " (il-join rooms ", ") "; a group is in one room."))
+    ((vl-some '(lambda (e) (/= (il-get "style" (il-xget e)) style)) enames)
+      (initget "Yes No")
+      (setq answer (getkword (strcat "\nThe runs have different styles. Give them all " (il-style-label (il-style-by-id style)) "? [Yes/No] <Yes>: ")))
+      (if (= answer "No")
+        "\nRuns in a group need one style."
+        (progn
+          (foreach e enames
+            (if (/= (il-get "style" (il-xget e)) style) (il-xupdate e (list (cons "style" style))))
+          )
+          nil
+        )
+      )
+    )
+  )
+)
+
+;; The power policy answered at the prompt; DEFAULTS is a group's XData (or nil for a new group).
+(defun il-group-power-ask (defaults / include allocation)
+  (initget "Yes No")
+  (setq include (getkword (strcat "\nInclude the shared power supplies on the quote? [Yes/No] <"
+                                  (if (= (il-get "include" defaults) "0") "No" "Yes") ">: ")))
+  (setq include (cond ((= include "No") "0") ((= include "Yes") "1") ((= (il-get "include" defaults) "0") "0") (T "1")))
+  (initget "Shared Separate")
+  (setq allocation (getkword (strcat "\nRuns share a supply output when the load fits, or one output each? [Shared/Separate] <"
+                                     (if (= (il-get "allocation" defaults) "per_run") "Separate" "Shared") ">: ")))
+  (setq allocation (cond ((= allocation "Separate") "per_run") ((= allocation "Shared") "grouped")
+                         ((= (il-get "allocation" defaults) "per_run") "per_run") (T "grouped")))
+  (list (cons "include" include) (cons "allocation" allocation))
+)
+
+;; The group picked by its tag, by one of its runs or by a run's tag; nil otherwise.
+(defun il-pick-group (message / picked ename owner)
+  (if (setq picked (entsel message))
+    (progn
+      (setq ename (car picked))
+      (if (and (= (il-kind ename) "TAG") (setq owner (handent (il-str (il-get "owner" (il-xget ename))))))
+        (setq ename owner)
+      )
+      (cond
+        ((= (il-kind ename) "GROUP") ename)
+        ((= (il-kind ename) "RUN") (il-group-entity-of (il-get "id" (il-xget ename))))
+      )
+    )
+  )
+)
+
+(defun c:ILGROUP (/ action enames problem point id fixture-type power ids group x listed members ename)
+  (il-begin)
+  (il-assets-ensure)
+  (initget "New Add Remove Power Delete")
+  (setq action (getkword "\nMulti-run group (one schedule line, shared supplies) [New/Add runs/Remove runs/Power/Delete] <New>: "))
+  (cond
+    ((or (null action) (= action "New"))
+      (setq enames (il-select-runs "\nSelect the runs to quote as one group."))
+      (cond
+        ((null enames) (princ "\nNo runs selected."))
+        ((setq problem (il-group-runs-problem enames)) (princ problem))
+        ((setq point (getpoint "\nGroup tag location: "))
+          (setq id (il-ask-id "GROUP" "Group tag" "G-"))
+          (setq fixture-type (il-ask "Schedule Type" (il-str (il-get "type" (il-xget (car enames))))))
+          (setq power (il-group-power-ask nil))
+          (setq ids (mapcar '(lambda (e) (il-get "id" (il-xget e))) enames))
+          (il-ungroup-runs ids nil)
+          (il-make-group enames point id fixture-type power)
+          (il-update-all nil)
+          (princ (strcat "\n" id ": " (il-join ids ", ") " quote as one " fixture-type " line"
+                         (if (= (il-get "include" power) "0") ", supplies not included." " with shared supplies.")))
+        )
+      )
+    )
+    ((setq group (il-pick-group "\nPick the group tag (or one of its runs): "))
+      (setq x (il-xget group) listed (il-id-list (il-get "runs" x)))
+      (cond
+        ((= action "Delete")
+          (initget "Yes No")
+          (if (/= (getkword (strcat "\nDelete group " (il-get "id" x) "? Its runs become separate lines and stacked runs are unstacked. [Yes/No] <No>: ")) "Yes")
+            (princ "\nNothing changed.")
+            (progn
+              (foreach run-id listed
+                (if (setq ename (il-find-id "RUN" run-id)) (il-xupdate ename (list (cons "copies" "1"))))
+              )
+              (entdel group)
+              (il-update-all nil)
+              (princ (strcat "\nGroup " (il-get "id" x) " deleted."))
+            )
+          )
+        )
+        ((= action "Power")
+          (il-xupdate group (il-group-power-ask x))
+          (il-update-all nil)
+          (princ (strcat "\nGroup " (il-get "id" x) " power updated."))
+        )
+        ((= action "Add")
+          (setq enames (il-select-runs "\nSelect the runs to add."))
+          (setq members (vl-remove nil (mapcar '(lambda (run-id) (il-find-id "RUN" run-id)) listed)))
+          (cond
+            ((null enames) (princ "\nNo runs selected."))
+            ((setq problem (il-group-runs-problem (append members enames))) (princ problem))
+            (T
+              (setq ids (mapcar '(lambda (e) (il-get "id" (il-xget e))) enames))
+              (il-ungroup-runs ids group)
+              (il-xupdate group (list (cons "runs" (il-join (append listed (vl-remove-if '(lambda (run-id) (member run-id listed)) ids)) ","))))
+              (foreach e enames
+                (if (/= (il-str (il-get "type" (il-xget e))) (il-str (il-get "type" x))) (il-xupdate e (list (cons "type" (il-get "type" x)))))
+              )
+              (il-update-all nil)
+              (princ (strcat "\n" (il-get "id" x) ": " (il-join (il-id-list (il-get "runs" (il-xget group))) ", ") "."))
+            )
+          )
+        )
+        ((= action "Remove")
+          (setq enames (il-select-runs "\nSelect the runs to take off the group."))
+          (setq ids (mapcar '(lambda (e) (il-get "id" (il-xget e))) enames))
+          (il-xupdate group (list (cons "runs" (il-join (vl-remove-if '(lambda (run-id) (member run-id ids)) listed) ","))))
+          (il-update-all T)
+          (princ (strcat "\n" (il-get "id" x) ": " (il-str (il-join (il-id-list (il-get "runs" (il-xget group))) ", "))
+                         ". A stacked run taken off a group gets a group of its own."))
+        )
+      )
+    )
+    (T (princ "\nThat is not an ilLumenate group or a run in one."))
+  )
+  (il-end)
+)
+
+(defun c:ILSTACK (/ picked ename x id copies answer label group)
+  (il-begin)
+  (il-assets-ensure)
+  (if (and (setq picked (entsel "\nPick the run that stands for stacked runs (shelves above each other): "))
+           (= (il-kind (setq ename (car picked))) "RUN"))
+    (progn
+      (setq x (il-xget ename) id (il-get "id" x) copies (il-xcopies x))
+      (initget 6)
+      (setq answer (getint (strcat "\nIdentical runs on " id ", 1 to " (itoa *il-max-group-members*) " (1 unstacks) <" (itoa (max copies 2)) ">: ")))
+      (if (null answer) (setq answer (max copies 2)))
+      (if (> answer *il-max-group-members*)
+        (princ (strcat "\nA group holds at most " (itoa *il-max-group-members*) " runs."))
+        (progn
+          (setq label (if (> answer 1) (il-trim (il-ask "Label each run as (Shelf gives Shelf 1, Shelf 2...; Enter for the run id)" (il-str (il-get "label" x)))) ""))
+          (il-xupdate ename (list (cons "copies" (itoa answer)) (cons "label" label)))
+          (setq group (il-group-entity-of id))
+          (if (and (> answer 1) (null group))
+            (setq group (il-make-group (list ename) (il-group-tag-point ename) (il-next-id "GROUP" "G-") (il-str (il-get "type" x))
+                                       (il-group-power-ask nil)))
+          )
+          (il-update-all nil)
+          (princ (strcat "\n" id
+                         (if (> answer 1)
+                           (strcat " is " (itoa answer) " stacked runs in group " (il-get "id" (il-xget group)) " (one schedule line).")
+                           " is one run again.")))
+          (if (and (= answer 1) group)
+            (princ (strcat " It stays in group " (il-get "id" (il-xget group)) "; ILGROUP Remove takes it off."))
+          )
+        )
+      )
+    )
+    (princ "\nThat is not an ilLumenate run.")
+  )
   (il-end)
 )
 
@@ -1410,6 +1774,7 @@
       (il-set-setting "rev" rev)
       (il-set-setting "last_package_hash" hash)
       (princ (strcat "\nWrote " path " (revision " (itoa rev) "): " (itoa (length (il-get "runs" model))) " runs, "
+                     (if (il-get "groups" model) (strcat (itoa (length (il-get "groups" model))) " groups, ") "")
                      (itoa (length (il-get "rooms" model))) " rooms, " (itoa (length (il-get "psus" model))) " PSUs, "
                      (itoa (length (il-get "wires" model))) " wires; " (itoa (car counts)) " errors, " (itoa (cadr counts)) " warnings."))
       (if (> (car counts) 0) (princ "\nThe portal refuses packages with errors: run ILCHECK, then fix or override them."))
@@ -1419,7 +1784,7 @@
   (il-end)
 )
 
-(defun c:ILRECEIPT (/ path receipt index count ename run)
+(defun c:ILRECEIPT (/ path receipt index count ename run groups group stamped)
   (il-begin)
   (setq path (getfiled "Import receipt from the portal" (getvar "DWGPREFIX") "json" 0))
   (cond
@@ -1440,6 +1805,18 @@
           )
         )
       )
+      (setq groups (il-receipt-groups receipt) stamped 0)
+      (foreach ename (il-entities "GROUP")
+        (setq group (il-group-with-receipt (il-group-from-entity ename) groups))
+        (if (il-get "line_key" group)
+          (progn
+            (il-xupdate ename (mapcar '(lambda (key) (cons key (il-str (il-get key group))))
+                                      '("line_key" "configured_name" "config_hash" "part_number")))
+            (setq stamped (1+ stamped))
+          )
+        )
+      )
+      (if (> stamped 0) (il-update-groups (il-model)))
       (foreach pair (il-receipt-controls receipt)
         (if (and (cdr pair) (setq ename (il-find-id "CONTROL" (car pair))))
           (il-xupdate ename (list (cons "line_key" (cdr pair))))
@@ -1449,7 +1826,8 @@
       (il-set-setting "schedule_version" (il-j receipt "schedule_version"))
       (il-set-setting "receipt_hash" (substr (il-str (il-jp receipt '("drawing" "hash"))) 8))
       (il-store-json "RECEIPT" receipt)
-      (princ (strcat "\n" (itoa count) " runs stamped with their schedule lines (" (il-str (il-j receipt "import")) ")."))
+      (princ (strcat "\n" (itoa count) " runs" (if (> stamped 0) (strcat " and " (itoa stamped) " groups") "")
+                     " stamped with their schedule lines (" (il-str (il-j receipt "import")) ")."))
     )
   )
   (il-end)
@@ -1617,7 +1995,7 @@
   y
 )
 
-(defun c:ILOUT (/ point receipt rows scale cuts)
+(defun c:ILOUT (/ point receipt rows scale cuts members supplies)
   (il-begin)
   (il-assets-ensure)
   (setq receipt (il-fetch-json "RECEIPT"))
@@ -1632,6 +2010,20 @@
           (setq rows (append rows (list (list (il-str (il-j run "id")) (il-str (il-j run "fixture_type")) (il-str (il-j run "part_number"))
                                               (il-num-text (il-j run "drawn_length_in") 2)
                                               (il-num-text (il-j run "server_length_in") 2) cuts))))
+        )
+        ;; Each group is one schedule line: its runs (stacked copies each), then its shared supplies.
+        (foreach group (il-items (il-j receipt "groups"))
+          (setq members (il-join (mapcar '(lambda (m) (strcat (il-str (il-j m "label")) " " (il-num-text (il-j m "server_length_in") 2)))
+                                         (il-items (il-j group "members")))
+                                 ", "))
+          (setq supplies (il-join (mapcar '(lambda (s) (strcat (il-str (il-j s "qty")) " x " (il-str (il-j s "item_code"))))
+                                          (il-items (il-j group "supplies")))
+                                  ", "))
+          (setq rows (append rows (list (list (il-str (il-j group "id")) (il-str (il-j group "fixture_type")) (il-str (il-j group "part_number"))
+                                              "" (il-num-text (il-j group "server_length_in") 2) members))))
+          (if (/= supplies "")
+            (setq rows (append rows (list (list "" "" "Shared supplies" "" "" supplies))))
+          )
         )
         (il-table point rows (mapcar '(lambda (w) (* w scale)) '(0.8 0.6 2.6 0.9 0.9 2.4)) (* 0.09375 scale))
         (princ (strcat "\nRun schedule from import " (il-str (il-j receipt "import")) ". Production builds from the BOM, not this table."))
@@ -1707,6 +2099,8 @@
       "  ILFEED      snap to the feed end; feed direction, lead length and feed method"
       "  ILSCALE     calibrate an underlay; ILROOM rooms; ILCAB cabinets; ILPSU supplies"
       "  ILCONNECT   add or remove runs on a PSU; ILWIRE draw a wire path"
+      "  ILSTACK     one drawn run is several identical runs (shelves above each other): one group line"
+      "  ILGROUP     quote runs as one multi-run group line with shared supplies; add, remove, power, delete"
       "  ILCTRL      place a controller or decoder; ILZONE add, change or delete a zone; ILDMX patch"
       "  ILOTHER     add, replace or delete another manufacturer's fixture"
       "  ILOVERRIDE  accept a check with a reason, or remove an override"
